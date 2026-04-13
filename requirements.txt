@@ -1,0 +1,11 @@
+# Godot MCP Python Dependencies
+
+# Core
+fastmcp>=2.0.0
+
+# Fuzzy search
+fuzzywuzzy>=0.18.0
+python-Levenshtein>=0.21.0
+
+# File watching
+watchdog>=4.0.0

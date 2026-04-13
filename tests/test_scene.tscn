@@ -1,0 +1,34 @@
+[gd_scene load_steps=2 format=3 uid="uid://test_scene_abc123"]
+
+[ext_resource type="Script" path="res://scripts/player.gd" id="1_abc"]
+[ext_resource type="PackedScene" uid="uid://sprite_def456" path="res://sprites/player.tscn" id="2_def"]
+
+[sub_resource type="RectangleShape2D" id="1_shape"]
+size = Vector2(32, 32)
+
+[sub_resource type="CircleShape2D" id="2_circle"]
+radius = 16.0
+
+[node name="Player" type="CharacterBody2D"]
+position = Vector2(100, 200)
+rotation = 0.5
+scale = Vector2(1.5, 1.5)
+script = ExtResource("1_abc")
+
+[node name="Sprite" type="Sprite2D" parent="Player"]
+position = Vector2(0, -20)
+texture = ExtResource("2_def")
+modulate = Color(1, 0.5, 0.5, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Player"]
+position = Vector2(0, 0)
+shape = SubResource("1_shape")
+
+[node name="Area2D" type="Area2D" parent="Player"]
+position = Vector2(50, 0)
+
+[node name="Hitbox" type="CollisionShape2D" parent="Player/Area2D"]
+position = Vector2(0, 0)
+shape = SubResource("2_circle")
+
+[connection signal="body_entered" from="Player/Area2D" to="Player" method="_on_area_body_entered" flags=0]
