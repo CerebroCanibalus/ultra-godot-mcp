@@ -558,7 +558,7 @@ class TSCNValidator:
                 ref_id = value[13:-2]
                 return ("ExtResource", ref_id)
             if value.startswith('SubResource("'):
-                ref_id = value[12:-2]
+                ref_id = value[13:-2]  # SubResource(" = 13 chars
                 return ("SubResource", ref_id)
         return None
 

@@ -416,6 +416,91 @@ shape = SubResource("1_shape")
         assert len(scene.sub_resources) == 1
         assert scene.sub_resources[0].type == "RectangleShape2D"
 
+    def test_subresources_between_nodes_not_lost(self):
+        """Regression: SubResources interleaved with nodes must all be parsed.
+
+        Bug: When a [node] section followed a [sub_resource], the pending
+        SubResource was never flushed to scene.sub_resources.
+        """
+        content = """[gd_scene load_steps=5 format=3]
+
+[sub_resource type="TileSet" id="TileMapTileSet"]
+tile_size = Vector2(32, 32)
+
+[node name="TileMap" type="TileMap"]
+tile_set = SubResource("TileMapTileSet")
+
+[sub_resource type="CircleShape2D" id="CircleShape2D"]
+radius = 16.0
+
+[node name="Enemy" type="CharacterBody2D"]
+position = Vector2(100, 100)
+"""
+        scene = parse_tscn_string(content)
+
+        assert len(scene.sub_resources) == 2
+        ids = {s.id for s in scene.sub_resources}
+        assert "TileMapTileSet" in ids
+        assert "CircleShape2D" in ids
+        assert len(scene.nodes) == 2
+
+    def test_consecutive_subresources_not_lost(self):
+        """Regression: Consecutive SubResources without nodes between them.
+
+        Bug: When a [sub_resource] followed another [sub_resource], the first
+        one was overwritten without being saved.
+        """
+        content = """[gd_scene load_steps=4 format=3]
+
+[sub_resource type="CircleShape2D" id="big"]
+radius = 32.0
+
+[sub_resource type="CircleShape2D" id="small"]
+radius = 8.0
+
+[sub_resource type="RectangleShape2D" id="rect"]
+size = Vector2(64, 64)
+"""
+        scene = parse_tscn_string(content)
+
+        assert len(scene.sub_resources) == 3
+        ids = {s.id for s in scene.sub_resources}
+        assert "big" in ids
+        assert "small" in ids
+        assert "rect" in ids
+
+    def test_complex_mixed_subresources_and_nodes(self):
+        """Regression: Complex mix of SubResources and nodes in various orders."""
+        content = """[gd_scene load_steps=8 format=3]
+
+[sub_resource type="TileSet" id="TileMapTileSet"]
+tile_size = Vector2(32, 32)
+
+[node name="TileMap" type="TileMap"]
+tile_set = SubResource("TileMapTileSet")
+
+[sub_resource type="CircleShape2D" id="CircleShape2D"]
+radius = 16.0
+
+[node name="Enemy" type="CharacterBody2D"]
+position = Vector2(100, 100)
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_small"]
+radius = 8.0
+
+[sub_resource type="RectangleShape2D" id="RectShape2D"]
+size = Vector2(64, 64)
+"""
+        scene = parse_tscn_string(content)
+
+        assert len(scene.sub_resources) == 4
+        ids = {s.id for s in scene.sub_resources}
+        assert "TileMapTileSet" in ids
+        assert "CircleShape2D" in ids
+        assert "CircleShape2D_small" in ids
+        assert "RectShape2D" in ids
+        assert len(scene.nodes) == 2
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

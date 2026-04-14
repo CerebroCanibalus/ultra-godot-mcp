@@ -336,12 +336,12 @@ def _parse_gdscript_value(value_str: str) -> Any:
 
     # Handle SubResource("id") references
     if value_str.startswith('SubResource("') and value_str.endswith('")'):
-        ref = value_str[12:-2]  # Remove SubResource(" and ")
+        ref = value_str[13:-2]  # Remove SubResource(" and ")
         return {"type": "SubResource", "ref": ref}
 
     # Handle NodePath("path") references
     if value_str.startswith('NodePath("') and value_str.endswith('")'):
-        ref = value_str[9:-2]  # Remove NodePath(" and ")
+        ref = value_str[10:-2]  # Remove NodePath(" and ")
         return {"type": "NodePath", "ref": ref}
 
     # Handle Vector2(x, y)
@@ -724,6 +724,9 @@ def parse_tscn_string(content: str) -> Scene:
             )
 
         elif section == SectionType.SUB_RESOURCE:
+            # Flush pending sub_resource before creating new one
+            if current_sub_resource:
+                scene.sub_resources.append(current_sub_resource)
             current_section = section
             data = _parse_sub_resource_header(line)
             current_sub_resource = SubResource(
@@ -733,6 +736,10 @@ def parse_tscn_string(content: str) -> Scene:
             )
 
         elif section == SectionType.NODE:
+            # Flush pending sub_resource before switching to node section
+            if current_sub_resource:
+                scene.sub_resources.append(current_sub_resource)
+                current_sub_resource = None
             # Save previous node before creating new one
             if current_node:
                 scene.nodes.append(current_node)

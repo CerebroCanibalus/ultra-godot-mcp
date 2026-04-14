@@ -189,10 +189,10 @@ script = ExtResource("1_scene")
 
     def test_valid_parent_paths(self, validator):
         """
-        Test that invalid parent paths generate warnings.
+        Test that invalid parent paths generate an ERROR.
 
         When a node references a parent that doesn't exist in the scene,
-        validation should warn but not block.
+        validation should fail because broken parent paths cause Godot errors.
         """
         tscn = """[gd_scene load_steps=1 format=3]
 
@@ -202,8 +202,9 @@ script = ExtResource("1_scene")
         scene = parse_tscn_string(tscn)
         result = validator.validate(scene)
 
-        # Should have warnings about invalid parent path
-        assert len(result.warnings) > 0
+        # Should have errors about invalid parent path (ERROR level, not WARNING)
+        assert len(result.errors) > 0
+        assert any("Invalid parent path" in err for err in result.errors)
 
     # ============ VALID SCENE TESTS ============
 
