@@ -56,7 +56,37 @@ La diferencia principal: otros MCPs lanzan `godot --headless --script` por cada 
 | **Templates** | ❌ | ❌ | ❌ | ❌ | **✅** |
 | **Docs en español** | ❌ | ❌ | ❌ | ❌ | **✅** |
 
-> **Nota:** GoPeak y tugcantopaloglu tienen más herramientas en número, pero cada operación requiere lanzar Godot headless. Ultra Godot MCP prioriza velocidad: 40 herramientas (38 sin Godot + 2 debug que lo requieren).
+> **Nota:** GoPeak y tugcantopaloglu tienen más herramientas en número, pero cada operación requiere lanzar Godot headless. Ultra Godot MCP prioriza velocidad: 42 herramientas (40 sin Godot + 2 debug que lo requieren).
+
+### Comparativa de funcionalidades
+
+| Funcionalidad | [godot-mcp](https://github.com/Coding-Solo/godot-mcp) | [GoPeak](https://github.com/HaD0Yun/Gopeak-godot-mcp) | [tugcantopaloglu/godot-mcp](https://github.com/tugcantopaloglu/godot-mcp) | [gdai-mcp](https://github.com/3ddelano/gdai-mcp-plugin-godot) | **Ultra Godot MCP** |
+|---|---|---|---|---|---|
+| **Parser nativo TSCN** | ❌ | ❌ | ❌ | ❌ | **✅** |
+| **Sin Godot instalado** | ❌ | ❌ | ❌ | ❌ | **✅** (40/42 tools) |
+| **Sesiones en memoria** | ❌ | ❌ | ❌ | ❌ | **✅** |
+| **Cache LRU** | ❌ | ❌ | ❌ | ❌ | **✅** |
+| **Validación Poka-Yoke** | ❌ | ❌ | ❌ | ❌ | **✅** |
+| **Búsqueda fuzzy** | ❌ | ❌ | ❌ | ❌ | **✅** |
+| **Templates** | ❌ | ❌ | ❌ | ❌ | **✅** |
+| **Inspector unificado** | ❌ | ✅ | ❌ | ❌ | **✅** |
+| **Asignación de recursos a nodos** | ❌ (Solo sprites) | ✅ (Requiere addon) | ✅ | ✅ | **✅ (Automático)** |
+| **Conexión de señales** | ❌ | ✅ | ✅ | ❌ | **✅** |
+| **Gestión de recursos** | ❌ | ✅ | ✅ | ✅ | **✅** |
+| **UIDs (Godot 4.4+)** | ✅ | ✅ | ✅ | ❌ | **✅** |
+| **LSP (autocompletado)** | ❌ | ✅ | ❌ | ❌ | ❌ |
+| **DAP (debugger)** | ❌ | ✅ | ❌ | ❌ | ❌ |
+| **Runtime inspection** | ❌ | ✅ | ❌ | ✅ | ❌ |
+| **Screenshots/input** | ❌ | ✅ | ❌ | ❌ | ❌ |
+| **Asset library** | ❌ | ✅ | ❌ | ❌ | ❌ |
+| **Project visualizer** | ❌ | ✅ | ❌ | ❌ | ❌ |
+| **Export mesh library** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Docs en español** | ❌ | ❌ | ❌ | ❌ | **✅** |
+| **Instalación** | `npx` (npm) | `npx` (npm) | npm | Addon Godot | **`pip` (Python)** |
+
+> **Lo que tenemos y ellos no:** Parser nativo, sesiones en memoria, cache LRU, validación Poka-Yoke, búsqueda fuzzy, templates, docs en español.
+>
+> **Lo que ellos tienen y nosotros no:** LSP (autocompletado GDScript), DAP (debugger con breakpoints), runtime inspection, screenshots/input injection, asset library, project visualizer.
 
 ### 🌎 Hecho para la comunidad hispanohablante y lusófona
 
