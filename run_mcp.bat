@@ -25,8 +25,8 @@ if errorlevel 1 (
 
 REM Iniciar el servidor MCP
 echo [Ultra Godot MCP v3.1.0] Plus Ultra: Iniciando servidor...
-echo [Ultra Godot MCP v3.1.0] Parser TSCN nativo - Sin Godot headless
-echo [Ultra Godot MCP v3.1.0] 38 herramientas disponibles
+echo [Ultra Godot MCP v3.1.0] Parser TSCN nativo - Sin Godot (38 tools), Debug (2 tools)
+echo [Ultra Godot MCP v3.1.0] 40 herramientas disponibles
 echo.
 
 python -m godot_mcp.server

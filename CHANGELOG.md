@@ -13,7 +13,7 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 - **Templates de nodos** (`node_templates.py`) para generación rápida de estructuras comunes
 - **Templates de scripts** (`script_templates.py`) para boilerplate GDScript
 - **Tests E2E** (`tests/e2e/`) con flujos completos de usuario
-- **Tests de servidor** (`test_server.py`) - verificación de registro de 38 herramientas
+- **Tests de servidor** (`test_server.py`) - verificación de registro de 40 herramientas
 - **Tests de templates** (`test_templates.py`) - 35 tests de validación
 - **Tests de búsqueda fuzzy** (`test_fuzzy_search.py`) - 11 tests
 - **Documentación de tests** (`docs/TESTS.md`) con métricas de cobertura

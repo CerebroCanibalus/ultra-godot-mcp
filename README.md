@@ -19,12 +19,13 @@ Servidor MCP para Godot Engine que permite a IAs y asistentes controlar proyecto
 | Característica | Descripción |
 |---|---|
 | 🔍 **Parsing nativo TSCN** | Lee y escribe archivos `.tscn` directamente, sin Godot headless |
-| 🛠️ **38 herramientas** | Escenas, nodos, recursos, scripts, señales, validación y más |
+| 🛠️ **42 herramientas** | Escenas, nodos, recursos, scripts, señales, validación y debug |
 | 🎯 **Inspector unificado** | `set_node_properties` maneja TODOS los tipos de propiedad automáticamente |
 | 🔄 **Sesiones en memoria** | Workspace con dirty tracking, lazy loading y cache LRU |
 | 🛡️ **Validación Poka-Yoke** | Previene errores antes de escribir archivos |
 | 🔎 **Búsqueda fuzzy** | Encuentra nodos tolerando typos con `fuzzywuzzy` |
 | 📦 **Templates** | Genera estructuras de nodos y scripts GDScript desde plantillas |
+| 🐛 **Debug** | 2 herramientas que requieren Godot instalado (las demás funcionan sin él) |
 
 ---
 
@@ -55,7 +56,7 @@ La diferencia principal: otros MCPs lanzan `godot --headless --script` por cada 
 | **Templates** | ❌ | ❌ | ❌ | ❌ | **✅** |
 | **Docs en español** | ❌ | ❌ | ❌ | ❌ | **✅** |
 
-> **Nota:** GoPeak y tugcantopaloglu tienen más herramientas en número, pero cada operación requiere lanzar Godot headless. Ultra Godot MCP prioriza velocidad: 38 herramientas que operan a velocidad de parser nativo.
+> **Nota:** GoPeak y tugcantopaloglu tienen más herramientas en número, pero cada operación requiere lanzar Godot headless. Ultra Godot MCP prioriza velocidad: 40 herramientas (38 sin Godot + 2 debug que lo requieren).
 
 ### 🌎 Hecho para la comunidad hispanohablante y lusófona
 
@@ -89,7 +90,7 @@ pip install -e ".[dev]"
 ### Requisitos
 
 - **Python 3.10+**
-- **Godot 4.6+** (solo para validación con `--check-only`, opcional)
+- **Godot 4.6+** (opcional, solo para tools de debug) |
 
 ---
 
@@ -135,8 +136,11 @@ python -m godot_mcp.server
 |---|---|
 | `start_session` | Crear sesión para un proyecto Godot |
 | `end_session` | Cerrar sesión y guardar cambios |
+| `get_active_session` | Obtener la sesión activa actual |
 | `get_session_info` | Información de una sesión |
 | `list_sessions` | Listar sesiones activas |
+| `commit_session` | Guardar cambios a disco |
+| `discard_changes` | Descartar cambios sin guardar |
 
 ### Escenas
 | Herramienta | Descripción |
@@ -146,12 +150,14 @@ python -m godot_mcp.server
 | `save_scene` | Guardar escena a disco |
 | `list_scenes` | Listar todas las escenas del proyecto |
 | `instantiate_scene` | Instanciar una escena como nodo hijo |
+| `modify_scene` | Modificar tipo/nombre del root de una escena |
 
 ### Nodos
 | Herramienta | Descripción |
 |---|---|
 | `add_node` | Añadir nodo a una escena |
 | `remove_node` | Eliminar nodo |
+| `update_node` | Actualizar propiedades de un nodo |
 | `rename_node` | Renombrar nodo |
 | `move_node` | Reparentar nodo |
 | `duplicate_node` | Duplicar nodo y sus hijos |
@@ -206,9 +212,17 @@ Maneja **automáticamente** todos los tipos:
 ### Validación
 | Herramienta | Descripción |
 |---|---|
-| `validate_tscn` | Validar archivo `.tscn` |
-| `validate_gdscript` | Validar script `.gd` |
-| `validate_project` | Validar proyecto completo |
+| `validate_tscn` | Validar archivo `.tscn` (parser nativo, sin Godot) |
+| `validate_gdscript` | Validar script `.gd` (parser nativo, sin Godot) |
+| `validate_project` | Validar proyecto completo (parser nativo, sin Godot) |
+
+### 🔧 Debug
+> ⚠️ Estas 2 herramientas **sí requieren Godot instalado**. Son las únicas que lanzan el motor.
+
+| Herramienta | Descripción |
+|---|---|
+| `run_debug_scene` | Ejecutar escena en modo headless y capturar errores, warnings y prints |
+| `check_script_syntax` | Verificar sintaxis GDScript con `--check-only` de Godot |
 
 ---
 
