@@ -79,7 +79,30 @@ Instancia una escena como nodo dentro de otra escena.
 ```python
 instantiate_scene(session_id: str, scene_path: str,
                   parent_scene_path: str, node_name: str,
-                  parent_node_path: str = ".") -> dict
+                  parent_node_path: str = ".",
+                  project_path: str = None) -> dict
+```
+
+**Parámetros:**
+- `project_path`: Ruta absoluta al proyecto Godot. **Recomendado** para generar paths `res://` limpios y habilitar deduplicación por filesystem.
+
+**Formato generado (Godot nativo):**
+```
+[node name="Enemy1" parent="." instance=ExtResource("1")]
+```
+
+**Deduplicación automática:** Si la escena padre ya tiene un ExtResource apuntando al mismo archivo (detectado por filesystem o fuzzy match), se reutiliza en lugar de crear uno duplicado.
+
+**Ejemplo:**
+```python
+# Instanciar enemy.tscn dentro de battlefield.tscn
+result = instantiate_scene(
+    session_id=session_id,
+    scene_path="res://scenes/enemy.tscn",
+    parent_scene_path="res://scenes/battlefield.tscn",
+    node_name="Enemy_Alpha",
+    project_path="/ruta/al/proyecto"
+)
 ```
 
 ---

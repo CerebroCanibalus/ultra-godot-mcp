@@ -108,6 +108,50 @@ position = Vector2(100, 200)
 
 ---
 
+### Nodo instanciado aparece con X roja (tipo inválido)
+
+**Síntoma:** El nodo aparece en el editor con una ❌ y el mensaje:
+> "Este nodo se guardó como tipo de clase 'PackedScene', que ya no estaba disponible"
+
+**Causa:** `instantiate_scene` generaba `type="PackedScene"` en el header del nodo. `PackedScene` es un **recurso**, no un tipo de nodo.
+
+**Solución:** El MCP ahora usa el formato nativo de Godot con `instance=ExtResource("id")` en el header del nodo:
+
+```
+# Formato correcto (Godot nativo)
+[node name="Enemy1" parent="." instance=ExtResource("1")]
+
+# Formato incorrecto (viejo)
+[node name="Enemy1" type="PackedScene" parent="."]
+scene_file_path = ExtResource("1")
+```
+
+---
+
+### ExtResource duplicados en escena
+
+**Síntema:** Múltiples `[ext_resource]` apuntan al mismo archivo con IDs diferentes.
+
+**Causa:** `instantiate_scene` calculaba paths inconsistentes (ej: `res://a/b/c.tscn` vs `res://c.tscn`) y no detectaba que eran el mismo recurso.
+
+**Solución:** El MCP incluye un **deduplicador automático** que se ejecuta antes de guardar. Usa 3 estrategias:
+
+1. **Filesystem resolution**: Resuelve `res://` a path real en disco
+2. **Fuzzy match**: Detecta recursos con el mismo filename + tipo
+3. **Path normalization**: Colapsa `..`, `.`, `//` en paths
+
+El deduplicador también **remapea** todas las referencias de nodos al ID canónico.
+
+---
+
+### Color pierde canal alpha
+
+**Síntoma:** `Color(r, g, b, a)` se serializa como `Color(r, g, b)`.
+
+**Solución:** El parser ahora extrae correctamente los 4 componentes del Color. El round-trip parse→serialize preserva el alpha.
+
+---
+
 ## 📝 Mejores Prácticas
 
 1. **Siempre iniciar sesión** antes de cualquier operación

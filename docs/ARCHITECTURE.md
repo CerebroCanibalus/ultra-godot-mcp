@@ -96,12 +96,60 @@ Parser nativo de archivos `.tscn` sin necesidad de Godot Editor.
 | `SubResource` | Recurso embebido en la escena |
 | `Connection` | Conexión de señal entre nodos |
 
+### SceneNode - Campo `instance`
+
+Los nodos que instancian escenas usan el campo `instance` en lugar de una propiedad:
+
+```python
+@dataclass
+class SceneNode:
+    name: str = ""
+    type: str = ""           # Vacío para nodos instanciados
+    parent: str = "."
+    unique_name_in_owner: bool = False
+    instance: str = ""       # ExtResource ID para instanciación
+    properties: dict = field(default_factory=dict)
+```
+
+Esto genera el formato nativo de Godot:
+```
+[node name="Enemy" parent="." instance=ExtResource("1")]
+```
+
+En lugar del formato incorrecto:
+```
+[node name="Enemy" type="PackedScene" parent="."]
+scene_file_path = ExtResource("1")
+```
+
+### Scene - Método `deduplicate_ext_resources()`
+
+Elimina ExtResources duplicados y remapea referencias automáticamente:
+
+```python
+scene.deduplicate_ext_resources(project_path="/ruta/proyecto")
+# Returns: {"removed": 1, "remapped": 1, "kept": 4,
+#           "resolved_paths": 4, "fuzzy_matched": 1}
+```
+
+**Estrategias de detección:**
+1. **Filesystem resolution**: Resuelve `res://` a path real en disco
+2. **Fuzzy match**: Detecta recursos con mismo filename + tipo
+3. **Path normalization**: Colapsa `..`, `.`, `//`
+
+**Remapeo recursivo:** Actualiza referencias en:
+- Propiedades de nodos (dict, Array, Dictionary anidados)
+- Propiedades de sub-recursos
+- Strings raw (ej: `'ExtResource("1")'`)
+
 ### Serialización
 
 `Scene.to_tscn()` convierte la estructura de vuelta a formato TSCN:
 - El nodo raíz **no** lleva atributo `parent`
+- Los nodos instanciados usan `instance=ExtResource("id")` en el header (sin `type`)
 - Los recursos se serializan como `ExtResource("id")` o `SubResource("id")`
 - Los tipos tipados (Vector2, Color, etc.) se formatean correctamente
+- `scene_file_path` se omite como propiedad cuando `instance` está presente
 
 ---
 
@@ -262,5 +310,12 @@ godot-mcp-python/
 
 ---
 
-*Documento de arquitectura v2.0*
-*Fecha: 2026-04-13*
+*Documento de arquitectura v2.1*
+*Fecha: 2026-04-14*
+
+### Changelog v2.1
+- `SceneNode` ahora tiene campo `instance` para instanciación nativa de Godot
+- `instantiate_scene` genera formato `instance=ExtResource("id")` en header
+- `Scene.deduplicate_ext_resources()` elimina duplicados y remapea referencias
+- Parser lee y serializa `instance=` del header de nodos
+- Parser preserva canal alpha en `Color(r, g, b, a)`

@@ -19,6 +19,7 @@ from .tools.project_tools import register_project_tools
 from .tools.validation_tools import register_validation_tools
 from .tools.signal_and_script_tools import register_signal_and_script_tools
 from .tools.property_tools import register_property_tools
+from .tools.debug_tools import register_debug_tools
 
 # Inicializar FastMCP con nombre "godot-mcp"
 mcp = FastMCP("godot-mcp")
@@ -91,6 +92,13 @@ def register_all_tools() -> None:
         logger.info("[OK] Property tools registradas")
     except Exception as e:
         logger.error(f"Error al registrar property_tools: {e}")
+        raise
+
+    try:
+        register_debug_tools(mcp)
+        logger.info("[OK] Debug tools registradas")
+    except Exception as e:
+        logger.error(f"Error al registrar debug_tools: {e}")
         raise
 
     logger.info("Todas las herramientas registradas correctamente")

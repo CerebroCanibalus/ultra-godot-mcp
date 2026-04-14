@@ -13,11 +13,14 @@ Usa el parser TSCN nativo y cache LRU para optimizar operaciones.
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Any, Optional
 
 from fastmcp import FastMCP
+
+logger = logging.getLogger(__name__)
 
 # Import cache and parser
 from godot_mcp.core.cache import LRUCache, get_cache as _get_cache_func
@@ -30,6 +33,7 @@ from godot_mcp.core.tscn_parser import (
     parse_tscn_string,
 )
 from godot_mcp.core.tscn_validator import TSCNValidator
+from godot_mcp.tools.node_tools import _mark_scene_dirty
 
 
 # ==================== Cache Compartido ====================
@@ -130,6 +134,9 @@ def create_scene(
         # Write to disk
         with open(full_scene_path, "w", encoding="utf-8") as f:
             f.write(scene.to_tscn())
+
+        # Mark as dirty for commit tracking
+        _mark_scene_dirty(full_scene_path)
 
         # Add to cache (empty until loaded properly)
         cache = _get_scene_cache()
@@ -269,6 +276,7 @@ def save_scene(
                         unique_name_in_owner=node_data.get(
                             "unique_name_in_owner", False
                         ),
+                        instance=node_data.get("instance", ""),
                         properties=node_data.get("properties", {}),
                     )
                 )
@@ -311,6 +319,9 @@ def save_scene(
         # Write to file
         with open(scene_path, "w", encoding="utf-8") as f:
             f.write(scene.to_tscn())
+
+        # Mark as dirty for commit tracking
+        _mark_scene_dirty(scene_path)
 
         # Invalidate cache
         cache = _get_scene_cache()
@@ -476,6 +487,9 @@ def modify_scene(
         with open(full_scene_path, "w", encoding="utf-8") as f:
             f.write(scene.to_tscn())
 
+        # Mark as dirty for commit tracking
+        _mark_scene_dirty(full_scene_path)
+
         # Invalidate cache
         cache = _get_scene_cache()
         cache.invalidate(full_scene_path)
@@ -502,6 +516,7 @@ def instantiate_scene(
     parent_scene_path: str,
     node_name: str,
     parent_node_path: str = ".",
+    project_path: str | None = None,
 ) -> dict:
     """
     Instantiate a scene as a node in another scene.
@@ -512,6 +527,9 @@ def instantiate_scene(
         parent_scene_path: Absolute path to the parent .tscn file.
         node_name: Name for the instantiated node.
         parent_node_path: Path to parent node in the parent scene (default: ".").
+        project_path: Absolute path to the Godot project root. If provided,
+            generates clean res:// paths relative to the project.
+            Required when scenes are in different directories.
 
     Returns:
         Dict with success status or error message.
@@ -538,49 +556,123 @@ def instantiate_scene(
             parent = parse_tscn(parent_scene_path)
             cache.set(parent_scene_path, parent)
 
-        # Calculate relative path
-        parent_dir = os.path.dirname(parent_scene_path)
-        scene_rel = os.path.relpath(scene_path, parent_dir)
+        # === Calculate res:// path ===
+        # Strategy: Always calculate relative to project_path if available,
+        # otherwise fall back to parent directory (legacy behavior).
+        if project_path and os.path.isdir(project_path):
+            # Calculate relative path from project root → always clean res://
+            scene_rel = os.path.relpath(scene_path, project_path)
+        else:
+            # Fallback: relative to parent scene's directory
+            parent_dir = os.path.dirname(parent_scene_path)
+            scene_rel = os.path.relpath(scene_path, parent_dir)
 
-        # Convert to Godot path (res://...)
-        if scene_rel.startswith(".."):
-            # External scene - need absolute path
-            # For now, use the relative path as is
-            pass
+            # Legacy fallback: if path goes up (..), try to find project root
+            if scene_rel.startswith(".."):
+                logger.warning(
+                    f"instantiate_scene: scene is outside parent directory. "
+                    f"Path '{scene_rel}' may be invalid. "
+                    f"Provide project_path for correct res:// paths."
+                )
 
-        # Normalize path separators
+        # Normalize path separators to forward slashes (Godot standard)
         scene_rel = scene_rel.replace(os.sep, "/")
+
+        # Validate the resulting path doesn't contain ..
+        if scene_rel.startswith(".."):
+            return {
+                "success": False,
+                "error": (
+                    f"Cannot create valid res:// path: '{scene_rel}'. "
+                    f"The scene is outside the project directory. "
+                    f"Provide a valid project_path parameter."
+                ),
+                "hint": "Both scenes must be within the same Godot project",
+            }
 
         # Create packed scene reference using the scene name
         scene_name = Path(scene_path).stem
 
         # Check if we need to add an external resource
         from godot_mcp.core.tscn_parser import ExtResource
+        from godot_mcp.tools.node_tools import (
+            _find_sibling_by_name,
+            _resolve_parent_path,
+        )
+
+        # Resolver parent path y verificar duplicados de hermanos
+        resolved_parent = _resolve_parent_path(parent, parent_node_path)
+
+        # Verificar que no exista un hermano con el mismo nombre bajo el mismo padre
+        existing_sibling = _find_sibling_by_name(parent, resolved_parent, node_name)
+        if existing_sibling:
+            return {
+                "success": False,
+                "error": f"Node already exists under parent '{resolved_parent}': {node_name}",
+                "hint": "Sibling names must be unique under the same parent",
+            }
 
         # Find existing PackedScene resource or add new one
-        ext_id = str(len(parent.ext_resources) + 1)
-        packed_res = ExtResource(
-            type="PackedScene",
-            path=f"res://{scene_rel}",
-            id=ext_id,
-        )
-        parent.ext_resources.append(packed_res)
+        target_path = f"res://{scene_rel}"
+
+        # Check if ExtResource with this path already exists
+        existing_ext = None
+        for res in parent.ext_resources:
+            if res.path == target_path:
+                existing_ext = res
+                break
+
+        if existing_ext:
+            # Reuse existing resource
+            ext_id = existing_ext.id
+        else:
+            # Generate unique numeric ID
+            numeric_ids = []
+            for res in parent.ext_resources:
+                try:
+                    numeric_ids.append(int(res.id))
+                except (ValueError, TypeError):
+                    pass
+            new_id = max(numeric_ids) + 1 if numeric_ids else 1
+            ext_id = str(new_id)
+
+            # Create and append new ExtResource
+            packed_res = ExtResource(
+                type="PackedScene",
+                path=target_path,
+                id=ext_id,
+            )
+            parent.ext_resources.append(packed_res)
 
         # Add instantiation node
+        # Add instantiation node using Godot's native format:
+        # [node name="X" parent="." instance=ExtResource("id")]
+        # Note: NO type attribute, instance= goes in the header
         new_node = SceneNode(
             name=node_name,
-            type="PackedScene",
-            parent=parent_node_path,
+            type="",  # Empty type - Godot infers from instance
+            parent=resolved_parent,
+            instance=ext_id,  # ExtResource ID in header, not as property
         )
 
-        # Add scene_file_path property as ExtResource dict (not string!)
-        new_node.properties["scene_file_path"] = {"type": "ExtResource", "ref": ext_id}
-
         parent.nodes.append(new_node)
+
+        # WORKAROUND: Deduplicate ExtResources before saving
+        # Uses filesystem resolution when project_path is available to catch
+        # cases where different res:// strings point to the same file on disk
+        dedup_result = parent.deduplicate_ext_resources(project_path=project_path)
+        if dedup_result["removed"] > 0:
+            logger.info(
+                f"instantiate_scene: deduplicated ExtResources in parent scene: "
+                f"removed={dedup_result['removed']}, remapped={dedup_result['remapped']}"
+            )
 
         # Save the parent scene
         with open(parent_scene_path, "w", encoding="utf-8") as f:
             f.write(parent.to_tscn())
+
+        # Mark as dirty for commit tracking
+        _mark_scene_dirty(parent_scene_path)
 
         # Invalidate cache
         cache.invalidate(parent_scene_path)

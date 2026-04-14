@@ -2133,6 +2133,55 @@ def _process_property_value(
             messages.append(f"Created SubResource '{shape_type}' -> {sub_id}")
             return f'SubResource("{sub_id}")', messages
 
+    # Case 3.5: Value is a list that should be a typed value based on schema
+    # This converts Python lists like [100, 200] to Godot typed dicts like Vector2(100, 200)
+    if isinstance(value, list) and schema:
+        expected_type = schema.get("type", "")
+
+        if expected_type in ("Vector2", "Vector2i") and len(value) == 2:
+            if expected_type == "Vector2i":
+                value = {"type": "Vector2i", "x": int(value[0]), "y": int(value[1])}
+            else:
+                value = {"type": "Vector2", "x": float(value[0]), "y": float(value[1])}
+
+        elif expected_type in ("Vector3", "Vector3i") and len(value) == 3:
+            if expected_type == "Vector3i":
+                value = {
+                    "type": "Vector3i",
+                    "x": int(value[0]),
+                    "y": int(value[1]),
+                    "z": int(value[2]),
+                }
+            else:
+                value = {
+                    "type": "Vector3",
+                    "x": float(value[0]),
+                    "y": float(value[1]),
+                    "z": float(value[2]),
+                }
+
+        elif expected_type == "Color" and len(value) in (3, 4):
+            color = {
+                "type": "Color",
+                "r": float(value[0]),
+                "g": float(value[1]),
+                "b": float(value[2]),
+            }
+            if len(value) == 4:
+                color["a"] = float(value[3])
+            value = color
+
+        elif expected_type == "Rect2" and len(value) == 4:
+            value = {
+                "type": "Rect2",
+                "x": float(value[0]),
+                "y": float(value[1]),
+                "width": float(value[2]),
+                "height": float(value[3]),
+            }
+
+        # After conversion, fall through to Case 2 for processing the typed dict
+
     # Case 4: Normal value (string, number, bool, etc.)
     return value, messages
 

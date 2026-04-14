@@ -86,6 +86,24 @@ def _find_node_by_path(scene: Scene, node_path: str) -> Optional[tuple[int, Scen
     return None
 
 
+def _find_sibling_by_name(
+    scene: Scene, parent_path: str, node_name: str
+) -> Optional[SceneNode]:
+    """
+    Find if a sibling with the same name exists under the same parent.
+
+    Godot only requires unique names among siblings (same parent), not globally.
+
+    Returns the existing sibling node if found, None otherwise.
+    """
+    normalized_parent = _resolve_parent_path(scene, parent_path) if parent_path else "."
+
+    for node in scene.nodes:
+        if node.name == node_name and node.parent == normalized_parent:
+            return node
+    return None
+
+
 def _resolve_parent_path(scene: Scene, parent_path: str) -> str:
     """Resolve parent path to valid parent string."""
     parent_path = parent_path.strip()
@@ -103,24 +121,87 @@ def _resolve_parent_path(scene: Scene, parent_path: str) -> str:
     return parent_path
 
 
-def _update_scene_file(scene_path: str, scene: Scene) -> None:
-    """Write scene back to file."""
+def _mark_scene_dirty(scene_path: str) -> None:
+    """Mark a scene as dirty in the active session for commit tracking.
+
+    This ensures that changes made by tools are tracked and can be
+    committed via commit_session().
+    """
+    try:
+        from godot_mcp.tools.session_tools import get_session_manager
+
+        manager = get_session_manager()
+        # Find any session that has this scene loaded or mark it dirty
+        # We iterate through all sessions since we don't know which one is active
+        for session_id in list(manager._sessions.keys()):
+            session = manager.get_session(session_id)
+            if session is not None:
+                # Mark as dirty if the scene was modified
+                manager.mark_scene_dirty(session_id, scene_path)
+                logger.debug(
+                    f"Marked scene dirty in session {session_id}: {scene_path}"
+                )
+    except Exception as e:
+        # Don't fail the operation if dirty tracking fails
+        logger.warning(f"Failed to mark scene dirty: {e}")
+
+
+def _update_scene_file(scene_path: str, scene: Scene, max_retries: int = 3) -> None:
+    """Write scene back to file with retry logic for file locking.
+
+    Args:
+        scene_path: Path to the .tscn file.
+        scene: Scene object to serialize.
+        max_retries: Number of retries on PermissionError (default: 3).
+
+    Raises:
+        PermissionError: If file is locked after all retries.
+        OSError: If other I/O error occurs.
+    """
+    import shutil
+    import time
+
     scene_path = _ensure_tscn_path(scene_path)
-
-    # Crear backup antes de modificar
-    backup_path = scene_path + ".bak"
-    if os.path.exists(scene_path):
-        import shutil
-
-        shutil.copy2(scene_path, backup_path)
-        logger.info(f"Backup created: {backup_path}")
-
-    # Escribir scene
     content = scene.to_tscn()
-    with open(scene_path, "w", encoding="utf-8") as f:
-        f.write(content)
 
-    logger.info(f"Scene saved: {scene_path}")
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            # Create backup before modifying
+            backup_path = scene_path + ".bak"
+            if os.path.exists(scene_path):
+                shutil.copy2(scene_path, backup_path)
+                logger.info(f"Backup created: {backup_path}")
+
+            # Write scene
+            with open(scene_path, "w", encoding="utf-8") as f:
+                f.write(content)
+
+            # Mark as dirty for commit tracking
+            _mark_scene_dirty(scene_path)
+
+            logger.info(f"Scene saved: {scene_path}")
+            return  # Success
+
+        except PermissionError as e:
+            last_error = e
+            logger.warning(
+                f"Permission denied writing {scene_path} (attempt {attempt + 1}/{max_retries}). "
+                f"Godot may have the file locked. Retrying..."
+            )
+            if attempt < max_retries - 1:
+                time.sleep(0.5 * (attempt + 1))  # Progressive backoff: 0.5s, 1s, 1.5s
+
+        except OSError as e:
+            logger.error(f"OS error writing scene {scene_path}: {e}")
+            raise
+
+    # All retries exhausted
+    raise PermissionError(
+        f"Failed to write {scene_path} after {max_retries} attempts. "
+        f"Godot editor may have the file locked. Close Godot or retry. "
+        f"Last error: {last_error}"
+    ) from last_error
 
 
 def _build_node_tree(scene: Scene) -> list[dict]:
@@ -472,17 +553,17 @@ def add_node(
     else:
         scene = parse_tscn(scene_path)
 
-    # Verificar que el nodo no exista
-    existing = _find_node_by_path(scene, node_name)
-    if existing:
-        return {
-            "success": False,
-            "error": f"Node already exists: {node_name}",
-            "node_path": existing[1].name,
-        }
-
     # Resolver path del padre
     resolved_parent = _resolve_parent_path(scene, parent_path)
+
+    # Verificar que no exista un hermano con el mismo nombre bajo el mismo padre
+    existing_sibling = _find_sibling_by_name(scene, resolved_parent, node_name)
+    if existing_sibling:
+        return {
+            "success": False,
+            "error": f"Node already exists under parent '{resolved_parent}': {node_name}",
+            "hint": "Sibling names must be unique under the same parent",
+        }
 
     # Crear nuevo nodo
     new_node = SceneNode(
@@ -740,17 +821,18 @@ def rename_node(
 
     idx, node = result
     old_name = node.name
+    old_parent = node.parent
 
-    # Verificar que el nuevo nombre no exista
-    existing = _find_node_by_path(scene, new_name)
-    if existing and existing[0] != idx:
+    # Verificar que el nuevo nombre no exista como hermano bajo el mismo padre
+    existing_sibling = _find_sibling_by_name(scene, old_parent, new_name)
+    if existing_sibling and existing_sibling != node:
         return {
             "success": False,
-            "error": f"Node already exists: {new_name}",
+            "error": f"Node already exists under parent '{old_parent}': {new_name}",
+            "hint": "Sibling names must be unique under the same parent",
         }
 
     # Renombrar
-    old_parent = node.parent
     node.name = new_name
 
     # Actualizar referencias de nodos hijos
@@ -883,12 +965,14 @@ def duplicate_node(
     if not new_name:
         new_name = original_node.name + "_copy"
 
-    # Verificar que no exista
-    existing = _find_node_by_path(scene, new_name)
-    if existing:
+    # Verificar que no exista un hermano con el mismo nombre bajo el mismo padre
+    original_parent = original_node.parent
+    existing_sibling = _find_sibling_by_name(scene, original_parent, new_name)
+    if existing_sibling:
         return {
             "success": False,
-            "error": f"Node already exists: {new_name}",
+            "error": f"Node already exists under parent '{original_parent}': {new_name}",
+            "hint": "Sibling names must be unique under the same parent",
         }
 
     # Crear duplicado (copia profunda de propiedades)

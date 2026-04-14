@@ -367,7 +367,7 @@ def commit_session(session_id: str, scene_path: Optional[str] = None) -> dict:
         failed = []
 
         for sp in dirty:
-            if manager.commit_session(session_id, sp):
+            if manager.commit_scene(session_id, sp):
                 saved.append(sp)
             else:
                 failed.append(sp)

@@ -432,6 +432,13 @@ class TSCNValidator:
                 message="Invalid parent path '{parent}' for node '{name}' - intermediate node missing or invalid chain",
                 level=ValidationLevel.ERROR,
             ),
+            # Rule 10: Unique sibling node names (ERROR - Godot rejects duplicate sibling names)
+            ValidationRule(
+                name="unique_sibling_node_names",
+                check=self._check_unique_sibling_node_names,
+                message="Duplicate node name '{name}' under parent '{parent}'",
+                level=ValidationLevel.ERROR,
+            ),
         ]
 
     def _is_root_node(self, scene: Scene, node: SceneNode) -> bool:
@@ -614,6 +621,16 @@ class TSCNValidator:
 
         return True
 
+    def _check_unique_sibling_node_names(self, scene: Scene) -> bool:
+        """Check that no two sibling nodes share the same name."""
+        seen: dict[tuple[str, str], SceneNode] = {}  # (parent, name) -> node
+        for node in scene.nodes:
+            key = (node.parent, node.name)
+            if key in seen:
+                return False
+            seen[key] = node
+        return True
+
     # ============ PUBLIC API ============
 
     def validate(self, scene: Scene) -> ValidationResult:
@@ -767,6 +784,19 @@ class TSCNValidator:
                     full_path = os.path.join(self.project_path, relative_path)
                     if not os.path.exists(full_path):
                         return message.format(path=resource.path)
+
+        # For unique sibling node names rule
+        if (
+            rule.name == "unique_sibling_node_names"
+            and "{name}" in message
+            and "{parent}" in message
+        ):
+            seen: dict[tuple[str, str], str] = {}
+            for node in scene.nodes:
+                key = (node.parent, node.name)
+                if key in seen:
+                    return message.format(name=node.name, parent=node.parent)
+                seen[key] = node.name
 
         return message
 

@@ -117,6 +117,7 @@ class SceneNode:
     type: str = ""
     parent: str = "."
     unique_name_in_owner: bool = False
+    instance: str = ""  # ExtResource ID for scene instantiation
     properties: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -125,6 +126,7 @@ class SceneNode:
             "type": self.type,
             "parent": self.parent,
             "unique_name_in_owner": self.unique_name_in_owner,
+            "instance": self.instance,
             "properties": self.properties,
         }
         return result
@@ -143,12 +145,17 @@ class SceneNode:
             header_parts.append(f'parent="{self.parent}"')
         if self.unique_name_in_owner:
             header_parts.append("unique_name_in_owner=true")
+        # Instance attribute for scene instantiation (Godot format)
+        if self.instance:
+            header_parts.append(f'instance=ExtResource("{self.instance}")')
 
         if header_parts:
             lines.append(f"[node {' '.join(header_parts)}]")
 
-        # Properties
+        # Properties (skip scene_file_path if instance is set)
         for key, value in self.properties.items():
+            if key == "scene_file_path" and self.instance:
+                continue  # Don't write scene_file_path as property when using instance=
             formatted_value = _format_gdscript_value(value)
             lines.append(f"{key} = {formatted_value}")
 
@@ -239,6 +246,254 @@ class Scene:
 
         return "\n".join(lines)
 
+    def deduplicate_ext_resources(self, project_path: str | None = None) -> dict:
+        """
+        Remove duplicate ExtResources and remap all node references.
+
+        Deduplication strategy (in order of priority):
+        1. If project_path is provided, resolve each res:// path to a real
+           filesystem path. Two resources pointing to the same file on disk
+           are considered duplicates (even if their res:// paths differ).
+        2. Fuzzy match by filename: if a path doesn't exist on disk, check if
+           another ExtResource of the same type has the same filename (stem+ext).
+           This catches cases like res://test_player.tscn vs
+           res://src/test/.../test_player.tscn.
+        3. Normalize res:// paths (collapse .., ., //) and compare by
+           (normalized_path, type).
+
+        Keeps the first occurrence (canonical) and remaps all references.
+
+        Args:
+            project_path: Absolute path to the Godot project root.
+                          Enables filesystem-based deduplication.
+
+        Returns:
+            Dict with summary: {"removed": int, "remapped": int, "kept": int,
+                                "resolved_paths": int, "fuzzy_matched": int}
+        """
+        import os
+        from pathlib import PurePosixPath
+
+        def _normalize_path(p: str) -> str:
+            """Normalize a res:// path: collapse .., ., and standardize separators."""
+            if not p.startswith("res://"):
+                return p
+            prefix = "res://"
+            rel = p[len(prefix) :]
+            rel = rel.replace("\\", "/")
+            while "//" in rel:
+                rel = rel.replace("//", "/")
+            parts = rel.split("/")
+            resolved = []
+            for part in parts:
+                if part == "..":
+                    if resolved:
+                        resolved.pop()
+                elif part == "." or part == "":
+                    continue
+                else:
+                    resolved.append(part)
+            return prefix + "/".join(resolved)
+
+        def _resolve_to_real_path(res_path: str) -> str | None:
+            """Resolve a res:// path to a real filesystem path."""
+            if not res_path.startswith("res://") or not project_path:
+                return None
+            rel = res_path[len("res://") :].replace("/", os.sep).replace("\\", os.sep)
+            real = os.path.normpath(os.path.join(project_path, rel))
+            if os.path.isfile(real):
+                return os.path.realpath(real)
+            return None
+
+        def _get_filename(p: str) -> str:
+            """Extract filename from res:// path."""
+            if p.startswith("res://"):
+                return PurePosixPath(p).name
+            return os.path.basename(p)
+
+        # Phase 0: Pre-compute filename index for fuzzy matching
+        # filename_type -> list of (index, id)
+        filename_index: dict[str, list[tuple[int, str]]] = {}
+        for i, res in enumerate(self.ext_resources):
+            fname = _get_filename(res.path)
+            key = f"{fname}|{res.type}"
+            filename_index.setdefault(key, []).append((i, res.id))
+
+        # Phase 1: Build dedup keys
+        key_to_canonical: dict[str, str] = {}  # dedup_key -> canonical_id
+        duplicates_to_remove: list[int] = []
+        resolved_count = 0
+        fuzzy_count = 0
+
+        for i, res in enumerate(self.ext_resources):
+            norm_path = _normalize_path(res.path)
+            res.path = norm_path  # Normalize in-place
+
+            # Strategy 1: Filesystem resolution
+            real_path = _resolve_to_real_path(norm_path)
+            if real_path:
+                dedup_key = f"real:{real_path}|{res.type}"
+                resolved_count += 1
+            else:
+                # Strategy 2: Fuzzy match by filename
+                fname = _get_filename(norm_path)
+                fname_key = f"{fname}|{res.type}"
+                entries = filename_index.get(fname_key, [])
+                if len(entries) > 1:
+                    # Multiple resources share this filename+type
+                    # Find the canonical (first one that resolved to disk OR first entry)
+                    canonical_dedup_key = None
+                    for entry_idx, entry_id in entries:
+                        if entry_idx == i:
+                            continue  # Skip self
+                        # Check if this entry resolved to a real path
+                        entry_res = self.ext_resources[entry_idx]
+                        entry_real = _resolve_to_real_path(entry_res.path)
+                        if entry_real:
+                            canonical_dedup_key = f"real:{entry_real}|{entry_res.type}"
+                            break
+                    if canonical_dedup_key is None:
+                        # No entry resolved to disk, use first entry as canonical
+                        canonical_dedup_key = f"fname:{fname_key}"
+                        fuzzy_count += 1
+                    dedup_key = canonical_dedup_key
+                else:
+                    # Strategy 3: Fallback to normalized path + type
+                    dedup_key = f"path:{norm_path}|{res.type}"
+
+            if dedup_key in key_to_canonical:
+                duplicates_to_remove.append(i)
+            else:
+                key_to_canonical[dedup_key] = res.id
+
+        # Phase 2: Build remap
+        id_remap: dict[str, str] = {}
+        for i in duplicates_to_remove:
+            old_res = self.ext_resources[i]
+            norm_path = _normalize_path(old_res.path)
+            real_path = _resolve_to_real_path(norm_path)
+            if real_path:
+                dedup_key = f"real:{real_path}|{old_res.type}"
+            else:
+                fname = _get_filename(norm_path)
+                fname_key = f"{fname}|{old_res.type}"
+                entries = filename_index.get(fname_key, [])
+                if len(entries) > 1:
+                    # Find the canonical dedup_key (same logic as Phase 1)
+                    canonical_dedup_key = None
+                    for entry_idx, entry_id in entries:
+                        if entry_idx == i:
+                            continue
+                        entry_res = self.ext_resources[entry_idx]
+                        entry_real = _resolve_to_real_path(entry_res.path)
+                        if entry_real:
+                            canonical_dedup_key = f"real:{entry_real}|{entry_res.type}"
+                            break
+                    if canonical_dedup_key is None:
+                        canonical_dedup_key = f"fname:{fname_key}"
+                    dedup_key = canonical_dedup_key
+                else:
+                    dedup_key = f"path:{norm_path}|{old_res.type}"
+            canonical_id = key_to_canonical[dedup_key]
+            if old_res.id != canonical_id:
+                id_remap[old_res.id] = canonical_id
+
+        # Phase 3: Recursive remap
+        def _remap_ext_refs(value: Any) -> int:
+            """Recursively find and remap ExtResource references. Returns count."""
+            count = 0
+            if isinstance(value, dict):
+                if value.get("type") == "ExtResource":
+                    old_ref = str(value.get("ref", ""))
+                    if old_ref in id_remap:
+                        value["ref"] = id_remap[old_ref]
+                        count += 1
+                elif value.get("type") == "Array":
+                    for item in value.get("items", []):
+                        count += _remap_ext_refs(item)
+                elif value.get("type") == "Dictionary":
+                    for k, v in value.get("items", {}).items():
+                        count += _remap_ext_refs(k)
+                        count += _remap_ext_refs(v)
+                else:
+                    for k, v in value.items():
+                        count += _remap_ext_refs(v)
+            elif isinstance(value, list):
+                for item in value:
+                    count += _remap_ext_refs(item)
+            elif isinstance(value, str):
+                for old_id, new_id in id_remap.items():
+                    pattern = f'ExtResource("{old_id}")'
+                    if pattern in value:
+                        value = value.replace(pattern, f'ExtResource("{new_id}")')
+                        count += 1
+            return count
+
+        remapped_count = 0
+        for node in self.nodes:
+            for key in list(node.properties.keys()):
+                value = node.properties[key]
+                if isinstance(value, str):
+                    # Handle raw string references directly (strings are immutable)
+                    new_value = value
+                    for old_id, new_id in id_remap.items():
+                        pattern = f'ExtResource("{old_id}")'
+                        if pattern in new_value:
+                            new_value = new_value.replace(
+                                pattern, f'ExtResource("{new_id}")'
+                            )
+                            remapped_count += 1
+                    node.properties[key] = new_value
+                else:
+                    remapped_count += _remap_ext_refs(value)
+
+        for sub in self.sub_resources:
+            for key in list(sub.properties.keys()):
+                value = sub.properties[key]
+                if isinstance(value, str):
+                    new_value = value
+                    for old_id, new_id in id_remap.items():
+                        pattern = f'ExtResource("{old_id}")'
+                        if pattern in new_value:
+                            new_value = new_value.replace(
+                                pattern, f'ExtResource("{new_id}")'
+                            )
+                            remapped_count += 1
+                    sub.properties[key] = new_value
+                else:
+                    remapped_count += _remap_ext_refs(value)
+
+        # Phase 4: Remove duplicates
+        for i in reversed(duplicates_to_remove):
+            self.ext_resources.pop(i)
+
+        return {
+            "removed": len(duplicates_to_remove),
+            "remapped": remapped_count,
+            "kept": len(self.ext_resources),
+            "resolved_paths": resolved_count,
+            "fuzzy_matched": fuzzy_count,
+        }
+        remapped_count = 0
+        for node in self.nodes:
+            for key, value in node.properties.items():
+                remapped_count += _remap_ext_refs(value)
+
+        # Also remap sub-resource properties
+        for sub in self.sub_resources:
+            for key, value in sub.properties.items():
+                remapped_count += _remap_ext_refs(value)
+
+        # Remove duplicates (in reverse order to preserve indices)
+        for i in reversed(duplicates_to_remove):
+            self.ext_resources.pop(i)
+
+        return {
+            "removed": len(duplicates_to_remove),
+            "remapped": remapped_count,
+            "kept": len(self.ext_resources),
+        }
+
 
 # ============ PARSING FUNCTIONS ============
 
@@ -284,7 +539,7 @@ def _parse_sub_resource_header(line: str) -> dict:
 
 def _parse_node_header(line: str) -> dict:
     """Parse [node] header line"""
-    result = {"parent": "."}
+    result = {"parent": ".", "instance": ""}
 
     content = line.strip().strip("[]")
     parts = content.split()
@@ -294,7 +549,13 @@ def _parse_node_header(line: str) -> dict:
             key, value = part.split("=", 1)
             value = value.strip('"')
 
-            if value == "true":
+            if key == "instance":
+                # instance=ExtResource("id")
+                if value.startswith('ExtResource("') and value.endswith('")'):
+                    result[key] = value[13:-2]
+                else:
+                    result[key] = value
+            elif value == "true":
                 result[key] = True
             elif value == "false":
                 result[key] = False
@@ -409,11 +670,11 @@ def _parse_gdscript_value(value_str: str) -> Any:
 
     # Handle Color(r, g, b, a)
     if value_str.startswith("Color(") and value_str.endswith(")"):
-        inner = value_str[7:-1]
+        inner = value_str[6:-1]
         parts = inner.split(", ")
         result = {"type": "Color"}
         for i, part in enumerate(parts):
-            if part.endswith("a") and i == 3:
+            if i == 3 and len(parts) == 4:
                 result["a"] = float(part)
             else:
                 try:
@@ -751,6 +1012,7 @@ def parse_tscn_string(content: str) -> Scene:
                 type=data.get("type", ""),
                 parent=data.get("parent", "."),
                 unique_name_in_owner=data.get("unique_name_in_owner", False),
+                instance=data.get("instance", ""),
             )
 
         elif section == SectionType.CONNECT:

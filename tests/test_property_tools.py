@@ -275,6 +275,114 @@ class TestPropertyProcessing:
         )
         assert result == {"type": "Color", "r": 1.0, "g": 0.5, "b": 0.5, "a": 1.0}
 
+    # ============ TEST LIST TO TYPED VALUE CONVERSION ============
+
+    def test_list_to_vector2(self):
+        """Test converting [100, 200] to Vector2 based on schema."""
+        scene = Scene()
+        node = SceneNode(name="Sprite2D", type="Sprite2D")
+        schema = {"type": "Vector2"}  # Property schema
+
+        result, messages = _process_property_value(
+            scene, node, "position", [100, 200], schema
+        )
+        assert result == {"type": "Vector2", "x": 100.0, "y": 200.0}
+
+    def test_list_to_vector2i(self):
+        """Test converting [100, 200] to Vector2i based on schema."""
+        scene = Scene()
+        node = SceneNode(name="Sprite2D", type="Sprite2D")
+        schema = {"type": "Vector2i"}
+
+        result, messages = _process_property_value(
+            scene, node, "frame_coords", [2, 5], schema
+        )
+        assert result == {"type": "Vector2i", "x": 2, "y": 5}
+
+    def test_list_to_vector3(self):
+        """Test converting [10, 20, 30] to Vector3 based on schema."""
+        scene = Scene()
+        node = SceneNode(name="Camera3D", type="Camera3D")
+        schema = {"type": "Vector3"}
+
+        result, messages = _process_property_value(
+            scene, node, "position", [10, 20, 30], schema
+        )
+        assert result == {"type": "Vector3", "x": 10.0, "y": 20.0, "z": 30.0}
+
+    def test_list_to_vector3i(self):
+        """Test converting [1, 2, 3] to Vector3i based on schema."""
+        scene = Scene()
+        node = SceneNode(name="Node3D", type="Node3D")
+        schema = {"type": "Vector3i"}
+
+        result, messages = _process_property_value(
+            scene, node, "grid_coord", [1, 2, 3], schema
+        )
+        assert result == {"type": "Vector3i", "x": 1, "y": 2, "z": 3}
+
+    def test_list_to_color(self):
+        """Test converting [1.0, 0.5, 0.5] to Color based on schema."""
+        scene = Scene()
+        node = SceneNode(name="Sprite2D", type="Sprite2D")
+        schema = {"type": "Color"}
+
+        result, messages = _process_property_value(
+            scene, node, "modulate", [1.0, 0.5, 0.5], schema
+        )
+        assert result == {"type": "Color", "r": 1.0, "g": 0.5, "b": 0.5}
+
+    def test_list_to_color_with_alpha(self):
+        """Test converting [1.0, 0.5, 0.5, 0.8] to Color with alpha."""
+        scene = Scene()
+        node = SceneNode(name="Sprite2D", type="Sprite2D")
+        schema = {"type": "Color"}
+
+        result, messages = _process_property_value(
+            scene, node, "modulate", [1.0, 0.5, 0.5, 0.8], schema
+        )
+        assert result == {"type": "Color", "r": 1.0, "g": 0.5, "b": 0.5, "a": 0.8}
+
+    def test_list_to_rect2(self):
+        """Test converting [0, 0, 32, 32] to Rect2 based on schema."""
+        scene = Scene()
+        node = SceneNode(name="Sprite2D", type="Sprite2D")
+        schema = {"type": "Rect2"}
+
+        result, messages = _process_property_value(
+            scene, node, "region_rect", [0, 0, 32, 32], schema
+        )
+        assert result == {
+            "type": "Rect2",
+            "x": 0.0,
+            "y": 0.0,
+            "width": 32.0,
+            "height": 32.0,
+        }
+
+    def test_list_without_schema_passes_through(self):
+        """Test that list without schema passes through as normal value."""
+        scene = Scene()
+        node = SceneNode(name="Node", type="Node")
+        schema = None  # No schema
+
+        result, messages = _process_property_value(
+            scene, node, "some_list", [1, 2, 3], schema
+        )
+        assert result == [1, 2, 3]
+
+    def test_list_wrong_length_ignores(self):
+        """Test that list with wrong length for expected type ignores conversion."""
+        scene = Scene()
+        node = SceneNode(name="Sprite2D", type="Sprite2D")
+        schema = {"type": "Vector2"}  # Expects 2 elements
+
+        # 3 elements - should not convert
+        result, messages = _process_property_value(
+            scene, node, "position", [100, 200, 300], schema
+        )
+        assert result == [100, 200, 300]
+
 
 # ============ TEST SET_NODE_PROPERTIES ============
 

@@ -605,16 +605,24 @@ class SessionManager:
                 logger.warning(f"Session {session_id} not found")
                 return False
 
-            scene = session.loaded_scenes.get(scene_path)
-            if scene is None:
-                logger.warning(f"Scene not loaded: {scene_path}")
-                return False
-
             if scene_path not in session.dirty_scenes:
                 logger.debug(f"Scene not dirty, skipping: {scene_path}")
                 return True
 
-            # Escribir a disco
+            # If scene is dirty but not in loaded_scenes, it was written directly
+            # to disk by a tool (add_node, set_node_properties, etc.).
+            # Just clear the dirty flag since changes are already persisted.
+            scene = session.loaded_scenes.get(scene_path)
+            if scene is None:
+                logger.info(
+                    f"Scene dirty but not in workspace (written directly): {scene_path}. "
+                    f"Clearing dirty flag."
+                )
+                session.dirty_scenes.discard(scene_path)
+                session.mark_modified()
+                return True
+
+            # Escribir a disco desde el workspace
             try:
                 # Usar la función writer si se provee, si no usar el método to_tscn
                 if writer_func:
