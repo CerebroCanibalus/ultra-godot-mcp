@@ -1,4 +1,4 @@
-# 🎮 Godot MCP Server
+# 🏴 Ultra Godot MCP
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Godot 4.6+](https://img.shields.io/badge/Godot-4.6+-478cbf?logo=godotengine&logoColor=white)](https://godotengine.org/)
@@ -6,7 +6,8 @@
 [![Version](https://img.shields.io/badge/Version-3.1.0-6f42c1)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**MCP (Model Context Protocol) server para Godot Engine** — permite a IAs y asistentes controlar proyectos Godot directamente: crear escenas, manipular nodos, gestionar recursos y validar código, **todo sin abrir el editor**.
+**Ultra Godot MCP** — *Plus Ultra*: ir más allá. El servidor MCP más rápido y completo para Godot Engine.
+Permite a IAs y asistentes controlar proyectos Godot directamente: crear escenas, manipular nodos, gestionar recursos y validar código, **todo sin abrir el editor**.
 
 ---
 
@@ -24,13 +25,13 @@
 
 ---
 
-## 🏆 ¿Por qué Godot MCP?
+## 🏆 ¿Por qué Ultra Godot MCP?
 
 ### ⚡ Velocidad extrema
 
 La principal ventaja frente a otros MCPs de Godot: **no lanzamos Godot nunca**. Mientras otros MCPs ejecutan `godot --headless --script` por cada operación (2-5 segundos de overhead), nuestro **parser nativo de TSCN** lee y escribe archivos `.tscn` directamente en milisegundos.
 
-| Operación | Otros MCPs | Godot MCP |
+| Operación | Otros MCPs | Ultra Godot MCP |
 |---|---|---|
 | Leer escena | ~2-5s (lanza Godot) | <10ms (parser nativo) |
 | Añadir nodo | ~2-5s | <5ms |
@@ -40,7 +41,7 @@ La principal ventaja frente a otros MCPs de Godot: **no lanzamos Godot nunca**. 
 
 38 herramientas MCP completas — el conjunto más amplio disponible — corriendo a velocidad de parser nativo:
 
-| Ventaja | Godot MCP | Otros MCPs |
+| Ventaja | Ultra Godot MCP | Otros MCPs |
 |---|---|---|
 | **Parsing** | Nativo Python (lee TSCN directo) | Godot headless por cada operación |
 | **Herramientas** | 38 completas | 8-15 básicas |
@@ -52,14 +53,16 @@ La principal ventaja frente a otros MCPs de Godot: **no lanzamos Godot nunca**. 
 
 ### 🌎 Hecho para la comunidad hispanohablante
 
-Godot MCP nació de una necesidad real: **la comunidad hispanohablante de Godot es enorme, pero las herramientas de IA para desarrollo de juegos están diseñadas exclusivamente en inglés**.
+Ultra Godot MCP nació de una necesidad real: **la comunidad hispanohablante de Godot es enorme, pero las herramientas de IA para desarrollo de juegos están diseñadas exclusivamente en inglés**.
 
 - **Documentación bilingüe**: README, guías y errores documentados en español
 - **Soporte nativo**: Creado por y para desarrolladores de España, México, Argentina, Colombia y toda Latinoamérica
 - **Sin barrera idiomática**: Mensajes de error, validación y logs en español cuando corres en tu entorno
 - **Comunidad inclusiva**: Porque hacer juegos no debería requerir hablar inglés
 
-> *"Desarrollado con ❤️ por Lenin y todos los iberófonos"* — no es solo un crédito, es nuestra razón de ser.
+> *"La técnica no es un simple instrumento, es la forma en que el ser humano se apropia de la realidad"* — Gustavo Bueno
+
+Desarrollado con ❤️ por los trabajadores y los iberófonos del mundo 🌍
 
 ---
 
@@ -287,8 +290,8 @@ src/godot_mcp/
 
 <div align="center">
 
-**Hecho para la comunidad hispanohablante de Godot** 🌎
+**Por los trabajadores y los iberófonos del mundo** 🌍
 
-Desarrollado con ❤️ por **Lenin** y todos los iberófonos 🇪🇸🇲🇽🇦🇷🇨🇴🇵🇪🇨🇱🇻🇪
+🇪🇸🇲🇽🇦🇷🇨🇴🇵🇪🇨🇱🇻🇪🇧🇴🇪🇨🇬🇹🇭🇳🇳🇮🇵🇾🇸🇻🇺🇾🇩🇴🇵🇷🇬🇶🇵🇭🇦🇩🇧🇿🇵🇹🇧🇷🇦🇴🇲🇿🇨🇻🇬🇼🇸🇹🇹🇱🇲🇴
 
 </div>

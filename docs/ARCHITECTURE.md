@@ -1,8 +1,8 @@
-# 🏗️ Arquitectura del Godot MCP
+# 🏗️ Arquitectura de Ultra Godot MCP
 
 ## Resumen
 
-El Godot MCP Server usa una arquitectura basada en **sesiones** que proporciona workspace en memoria, lazy loading y dirty tracking para operaciones eficientes sobre archivos `.tscn`.
+Ultra Godot MCP usa una arquitectura basada en **sesiones** que proporciona workspace en memoria, lazy loading y dirty tracking para operaciones eficientes sobre archivos `.tscn`.
 
 ---
 

@@ -1,5 +1,5 @@
 """
-godot-mcp - Ultra-fast MCP server for Godot Engine
+godot-mcp - Ultra Godot MCP: Plus Ultra
 
 An MCP (Model Context Protocol) server that provides fast, reliable communication
 with Godot Engine 4.x for game development automation.
@@ -16,4 +16,4 @@ Version: 3.1.0
 
 __version__ = "3.1.0"
 __title__ = "godot-mcp"
-__description__ = "MCP server for Godot Engine with native TSCN parsing"
+__description__ = "Ultra Godot MCP - Plus Ultra: ir más allá"

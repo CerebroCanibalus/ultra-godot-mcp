@@ -1,6 +1,6 @@
 # 🛠️ Referencia de Herramientas MCP
 
-Todas las herramientas disponibles en el Godot MCP Server.
+Todas las herramientas disponibles en Ultra Godot MCP.
 
 ---
 

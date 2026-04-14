@@ -1,4 +1,4 @@
-# Godot MCP Python Dependencies
+# Ultra Godot MCP - Dependencies
 
 # Core
 fastmcp>=2.0.0

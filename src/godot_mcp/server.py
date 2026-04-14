@@ -113,7 +113,7 @@ def main(transport: Optional[str] = None) -> None:
                   Si es None, usa el valor por defecto de FastMCP.
     """
     try:
-        logger.info("Iniciando Godot MCP Server v2.0.0...")
+        logger.info("Iniciando Ultra Godot MCP v3.1.0 - Plus Ultra...")
 
         # Registrar todas las herramientas
         register_all_tools()

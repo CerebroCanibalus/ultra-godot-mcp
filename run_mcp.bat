@@ -1,6 +1,6 @@
 @echo off
-REM Godot MCP Server v3.1.0 - Por Lenin y todos los iberófonos 🚩
-REM MCP server for Godot Engine with native TSCN parsing
+REM Ultra Godot MCP v3.1.0 - Por los trabajadores y los iberófonos del mundo 🏴
+REM Plus Ultra: ir más allá - MCP server con parser TSCN nativo
 
 cd /d "%~dp0"
 
@@ -24,9 +24,9 @@ if errorlevel 1 (
 )
 
 REM Iniciar el servidor MCP
-echo [Godot MCP v3.1.0] Iniciando servidor...
-echo [Godot MCP v3.1.0] Parser TSCN nativo - Sin Godot headless
-echo [Godot MCP v3.1.0] 38 herramientas disponibles
+echo [Ultra Godot MCP v3.1.0] Plus Ultra: Iniciando servidor...
+echo [Ultra Godot MCP v3.1.0] Parser TSCN nativo - Sin Godot headless
+echo [Ultra Godot MCP v3.1.0] 38 herramientas disponibles
 echo.
 
 python -m godot_mcp.server

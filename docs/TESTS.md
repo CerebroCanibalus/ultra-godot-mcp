@@ -1,4 +1,4 @@
-# 🧪 Test Suite - Godot MCP Python
+# 🧪 Test Suite - Ultra Godot MCP
 
 ## Resumen
 
