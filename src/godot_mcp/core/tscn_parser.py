@@ -218,6 +218,13 @@ class Scene:
     def to_tscn(self) -> str:
         lines = []
 
+        # Auto-calculate load_steps: 1 (scene itself) + ext_resources + sub_resources
+        actual_resources = len(self.ext_resources) + len(self.sub_resources)
+        if actual_resources > 0:
+            self.header.load_steps = 1 + actual_resources
+        elif self.header.load_steps == 0:
+            self.header.load_steps = 1  # At least the scene itself
+
         # Header
         lines.append(self.header.to_tscn())
         lines.append("")
@@ -517,17 +524,25 @@ def _parse_header_line(line: str) -> dict:
 
 
 def _parse_ext_resource_line(line: str) -> dict:
-    """Parse [ext_resource] line"""
+    """Parse [ext_resource] line using regex to handle paths with spaces."""
+    import re
+
     result = {}
-
     content = line.strip().strip("[]")
-    parts = content.split()
 
-    for part in parts[1:]:
-        if "=" in part:
-            key, value = part.split("=", 1)
-            value = value.strip('"')
-            result[key] = value
+    # Use regex to match key="value" or key=value patterns
+    # This handles values with spaces inside quotes correctly
+    pattern = r'(\w+)="([^"]*)"|(\w+)=(\S+)'
+    for match in re.finditer(pattern, content):
+        if match.group(1) is not None:
+            # Quoted value (may contain spaces)
+            key = match.group(1)
+            value = match.group(2)
+        else:
+            # Unquoted value
+            key = match.group(3)
+            value = match.group(4)
+        result[key] = value
 
     return result
 
@@ -538,29 +553,35 @@ def _parse_sub_resource_header(line: str) -> dict:
 
 
 def _parse_node_header(line: str) -> dict:
-    """Parse [node] header line"""
+    """Parse [node] header line using regex to handle names with spaces."""
+    import re
+
     result = {"parent": ".", "instance": ""}
 
     content = line.strip().strip("[]")
-    parts = content.split()
 
-    for part in parts[1:]:
-        if "=" in part:
-            key, value = part.split("=", 1)
-            value = value.strip('"')
+    # Use regex to match key="value" or key=value patterns
+    pattern = r'(\w+)="([^"]*)"|(\w+)=(\S+)'
+    for match in re.finditer(pattern, content):
+        if match.group(1) is not None:
+            key = match.group(1)
+            value = match.group(2)
+        else:
+            key = match.group(3)
+            value = match.group(4)
 
-            if key == "instance":
-                # instance=ExtResource("id")
-                if value.startswith('ExtResource("') and value.endswith('")'):
-                    result[key] = value[13:-2]
-                else:
-                    result[key] = value
-            elif value == "true":
-                result[key] = True
-            elif value == "false":
-                result[key] = False
+        if key == "instance":
+            # instance=ExtResource("id")
+            if value.startswith('ExtResource("') and value.endswith('")'):
+                result[key] = value[13:-2]
             else:
                 result[key] = value
+        elif value == "true":
+            result[key] = True
+        elif value == "false":
+            result[key] = False
+        else:
+            result[key] = value
 
     return result
 

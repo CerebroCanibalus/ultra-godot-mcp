@@ -197,15 +197,14 @@ class TestResolveParentPath:
         assert _resolve_parent_path(scene, ".") == "."
 
     def test_resolve_existing_parent(self):
-        """Test that 'Root' as parent resolves to '.' (hardcoded behavior)."""
+        """Test that existing node name resolves correctly."""
         scene = Scene(
             nodes=[
                 SceneNode(name="Root", type="Node2D", parent="."),
                 SceneNode(name="Player", type="CharacterBody2D", parent="Root"),
             ]
         )
-        # _resolve_parent_path has hardcoded check: if parent_path == "Root" -> return "."
-        assert _resolve_parent_path(scene, "Root") == "."
+        assert _resolve_parent_path(scene, "Root") == "Root"
 
     def test_resolve_empty_parent(self):
         """Test that empty string resolves to '.'."""
@@ -268,7 +267,6 @@ class TestAddNode:
         assert result["success"] is True
         assert result["node"]["name"] == "Sprite"
         assert result["node"]["type"] == "Sprite2D"
-        # _resolve_parent_path(".") returns "."
         assert result["node"]["parent"] == "."
 
     def test_add_node_as_child(self, session_id, simple_scene_file):
@@ -281,8 +279,7 @@ class TestAddNode:
             node_name="Sprite",
         )
         assert result["success"] is True
-        # _resolve_parent_path("Root") returns "." due to hardcoded check
-        assert result["node"]["parent"] == "."
+        assert result["node"]["parent"] == "Root"
 
     def test_add_node_duplicate_sibling_fails(self, session_id, simple_scene_file):
         """Test that adding a node with duplicate sibling name fails."""

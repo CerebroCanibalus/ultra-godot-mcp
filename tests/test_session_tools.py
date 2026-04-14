@@ -241,15 +241,14 @@ class TestCommitSession:
         manager = get_session_manager()
         manager.mark_scene_dirty(session_id, scene_path)
 
-        # Note: commit_session has a production bug where it calls
-        # manager.commit_session() instead of manager.commit_scene().
-        # We test the underlying commit_scene method directly.
-        result = manager.commit_scene(session_id, scene_path)
-        assert result is True
+        # Commit specific scene
+        result = commit_session(session_id, scene_path=scene_path)
+        assert result["success"] is True
+        assert result["scene_path"] == scene_path
 
         # Verify scene is no longer dirty
-        dirty = manager.get_dirty_scenes(session_id)
-        assert scene_path not in dirty
+        info = get_session_info(session_id)
+        assert scene_path not in info["dirty_scenes"]
 
 
 # ============ TEST SUITE: DISCARD_CHANGES ============

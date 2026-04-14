@@ -355,7 +355,7 @@ def commit_session(session_id: str, scene_path: Optional[str] = None) -> dict:
 
     if scene_path:
         # Guardar una escena específica
-        result = manager.commit_session(session_id, scene_path)
+        result = manager.commit_scene(session_id, scene_path)
         return {
             "success": result,
             "scene_path": scene_path,

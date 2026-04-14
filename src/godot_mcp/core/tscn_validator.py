@@ -733,7 +733,15 @@ class TSCNValidator:
         if "{type}" in message or "{name}" in message:
             for node in scene.nodes:
                 if node.type not in VALID_NODE_TYPES:
-                    return message.format(type=node.type, name=node.name)
+                    try:
+                        return message.format(
+                            type=node.type, name=node.name, parent=node.parent
+                        )
+                    except KeyError:
+                        try:
+                            return message.format(type=node.type, name=node.name)
+                        except KeyError:
+                            return message
 
         # For resource reference rules
         if "{ref_type}" in message:

@@ -4,33 +4,77 @@ build-backend = "hatchling.build"
 
 [project]
 name = "godot-mcp"
-version = "2.0.0"
-description = "Ultra-fast MCP server for Godot Engine with native TSCN parsing"
+version = "3.1.0"
+description = "MCP server for Godot Engine with native TSCN parsing - control Godot scenes, nodes, and resources from AI"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
 authors = [
     {name = "Lenin Iberofono", email = "lenin@iberofono.org"}
 ]
-license = {text = "MIT"}
-requires-python = ">=3.10"
+keywords = [
+    "godot",
+    "mcp",
+    "model-context-protocol",
+    "game-development",
+    "tscn",
+    "gdscript",
+    "ai",
+    "automation",
+    "fastmcp",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Games/Implementation",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
 dependencies = [
     "fastmcp>=0.4.0",
     "jinja2>=3.1.0",
     "watchdog>=3.0.0",
     "fuzzywuzzy>=0.18.0",
     "pydantic>=2.0.0",
-    "python-Levenshtein>=0.21.0"
+    "python-Levenshtein>=0.21.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest",
-    "pytest-asyncio",
-    "black",
-    "ruff",
-    "mypy"
+    "pytest>=7.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=4.0",
+    "black>=23.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0",
 ]
 
 [project.scripts]
 godot-mcp = "godot_mcp.server:main"
 
+[project.urls]
+Homepage = "https://github.com/lenin-iberofono/godot-mcp"
+Documentation = "https://github.com/lenin-iberofono/godot-mcp#readme"
+Repository = "https://github.com/lenin-iberofono/godot-mcp"
+Changelog = "https://github.com/lenin-iberofono/godot-mcp/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/lenin-iberofono/godot-mcp/issues"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/godot_mcp"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

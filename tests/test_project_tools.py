@@ -133,12 +133,10 @@ class TestParseProjectGodot:
 
     def test_parse_valid_project(self, temp_project):
         """Test parsing a valid project.godot file."""
-        # Note: parse_project_godot has a production bug where it passes
-        # allow_no_values=True to ConfigParser which is not supported.
-        # We test get_project_metadata instead which works correctly.
-        metadata = get_project_metadata(temp_project)
-        assert isinstance(metadata, dict)
-        assert metadata["name"] == "TestProject"
+        result = parse_project_godot(temp_project)
+        assert isinstance(result, dict)
+        assert "configuration" in result
+        assert "application" in result
 
     def test_parse_missing_project(self, tmp_path):
         """Test parsing non-existent project raises FileNotFoundError."""
@@ -279,17 +277,13 @@ class TestFindGdFiles:
 
     def test_find_gd_files_with_class_name(self, complex_project):
         """Test finding GD files and detecting class_name."""
-        # Note: find_gd_files has a production bug where it passes
-        # lines=10 to Path.read_text() which is not supported.
-        # This causes the function to fail silently.
-        # We test the basic structure instead.
         scripts = find_gd_files(complex_project)
-        # Due to the bug, class_name detection may fail
-        # but we can verify files are found
         assert len(scripts) == 2
-        paths = [s["path"] for s in scripts]
-        assert any("player.gd" in p for p in paths)
-        assert any("enemy.gd" in p for p in paths)
+
+        # Find player.gd
+        player_script = next((s for s in scripts if "player.gd" in s["path"]), None)
+        assert player_script is not None
+        assert player_script["class_name"] == "Player"
 
     def test_find_gd_files_without_class_name(self, complex_project):
         """Test finding GD files without class_name."""
@@ -314,16 +308,13 @@ class TestFindTresFiles:
 
     def test_find_tres_files_all(self, complex_project):
         """Test finding all .tres files."""
-        # Note: find_tres_files has a production bug where it passes
-        # lines=5 to Path.read_text() which is not supported.
-        # This causes the function to fail silently.
-        # We verify the files exist on disk instead.
-        import glob
+        resources = find_tres_files(complex_project)
+        assert len(resources) == 2
 
-        tres_files = glob.glob(
-            os.path.join(complex_project, "**", "*.tres"), recursive=True
-        )
-        assert len(tres_files) == 2
+    def test_find_tres_files_with_type_filter(self, complex_project):
+        """Test finding .tres files with type filter."""
+        resources = find_tres_files(complex_project, type_filter="Resource")
+        assert len(resources) == 2
 
     def test_find_tres_files_with_type_filter(self, complex_project):
         """Test finding .tres files with type filter."""
@@ -447,45 +438,10 @@ class TestMCPProjectTools:
 
     def test_find_resources_via_mcp(self, complex_project):
         """Test find_resources tool through MCP registration."""
-        from fastmcp import FastMCP
-
-        mcp = FastMCP("test")
-        from godot_mcp.tools.project_tools import register_project_tools
-
-        register_project_tools(mcp)
-
-        # Start session
-        start_result = start_session(complex_project)
-        session_id = start_result["session_id"]
-
-        # Call underlying function directly
         from godot_mcp.tools.project_tools import find_tres_files
 
         resources = find_tres_files(complex_project)
-        # Due to production bug with read_text(lines=...), this may return 0
-        # but the function should not crash
-        assert isinstance(resources, list)
-
-    def test_find_resources_via_mcp(self, complex_project):
-        """Test find_resources tool through MCP registration."""
-        from fastmcp import FastMCP
-
-        mcp = FastMCP("test")
-        from godot_mcp.tools.project_tools import register_project_tools
-
-        register_project_tools(mcp)
-
-        # Start session
-        start_result = start_session(complex_project)
-        session_id = start_result["session_id"]
-
-        # Call underlying function directly
-        from godot_mcp.tools.project_tools import find_tres_files
-
-        resources = find_tres_files(complex_project)
-        # Due to production bug with read_text(lines=...), this may return 0
-        # but the function should not crash
-        assert isinstance(resources, list)
+        assert len(resources) == 2
 
 
 if __name__ == "__main__":

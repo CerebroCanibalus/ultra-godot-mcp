@@ -11,9 +11,9 @@ Features:
     - Resource management
     - Session-based Godot editor communication
 
-Version: 2.0.0
+Version: 3.1.0
 """
 
-__version__ = "2.0.0"
+__version__ = "3.1.0"
 __title__ = "godot-mcp"
-__description__ = "Ultra-fast MCP server for Godot Engine"
+__description__ = "MCP server for Godot Engine with native TSCN parsing"

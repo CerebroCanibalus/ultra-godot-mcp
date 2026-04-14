@@ -54,7 +54,7 @@ def parse_project_godot(project_path: str) -> dict:
         raise FileNotFoundError(f"project.godot not found in {project_path}")
 
     # Usar configparser pero con soporte para comentarios
-    config = configparser.ConfigParser(allow_no_values=True)
+    config = configparser.ConfigParser()
     config.optionxform = str  # Mantener case-sensitive
 
     # Leer con manejo de comentarios
@@ -243,10 +243,10 @@ def find_gd_files(project_path: str) -> list:
 
         relative_path = gd_file.relative_to(path)
 
-        # Leer primera línea para detectar class_name
+        # Leer primeras líneas para detectar class_name
         class_name = None
         try:
-            content = gd_file.read_text(encoding="utf-8", lines=10)
+            content = gd_file.read_text(encoding="utf-8")
             for line in content.split("\n")[:10]:
                 line = line.strip()
                 if line.startswith("class_name "):
@@ -287,7 +287,7 @@ def find_tres_files(project_path: str, type_filter: Optional[str] = None) -> lis
             continue
 
         try:
-            content = tres_file.read_text(encoding="utf-8", lines=5)
+            content = tres_file.read_text(encoding="utf-8")
 
             # Detectar tipo de recurso
             resource_type = None

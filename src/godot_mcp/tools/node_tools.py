@@ -59,20 +59,46 @@ def _normalize_node_path(node_path: str) -> str:
     return node_path.strip("/")
 
 
+def _compute_node_full_path(node: SceneNode) -> str:
+    """Compute the full path of a node (e.g., 'Root/Player/Sprite')."""
+    if node.parent == ".":
+        return node.name
+    return f"{node.parent}/{node.name}"
+
+
 def _find_node_by_path(scene: Scene, node_path: str) -> Optional[tuple[int, SceneNode]]:
     """
     Find a node in scene by its path.
+
+    Supports:
+    - Full paths: "Root/Player/Sprite" (exact match)
+    - Simple names: "Sprite" (first match)
+    - Fuzzy matching when enabled
 
     Returns tuple of (index, node) if found, None otherwise.
     """
     normalized = _normalize_node_path(node_path)
 
-    # Buscar por nombre exacto primero
+    # Strategy 1: Exact full path match (highest priority)
+    if "/" in normalized:
+        for idx, node in enumerate(scene.nodes):
+            full_path = _compute_node_full_path(node)
+            if full_path == normalized:
+                return idx, node
+
+    # Strategy 2: Exact name match (first occurrence)
     for idx, node in enumerate(scene.nodes):
-        if node.name == normalized or node.name == normalized.split("/")[-1]:
+        if node.name == normalized:
             return idx, node
 
-    # Si no encuentra, buscar coincidencias parciales
+    # Strategy 3: Match by last segment of path (e.g., "Player/Sprite" -> "Sprite")
+    if "/" in normalized:
+        simple_name = normalized.split("/")[-1]
+        for idx, node in enumerate(scene.nodes):
+            if node.name == simple_name:
+                return idx, node
+
+    # Strategy 4: Fuzzy matching
     if FUZZY_AVAILABLE:
         best_match = None
         best_ratio = 0
@@ -108,7 +134,7 @@ def _resolve_parent_path(scene: Scene, parent_path: str) -> str:
     """Resolve parent path to valid parent string."""
     parent_path = parent_path.strip()
 
-    if not parent_path or parent_path == "." or parent_path == "Root":
+    if not parent_path or parent_path == ".":
         return "."
 
     # Buscar si existe el nodo padre
@@ -654,18 +680,22 @@ def remove_node(session_id: str, scene_path: str, node_path: str) -> dict:
     node_name = node.name
 
     # Remover nodo (y sus hijos si los hay)
-    # Nota: En una implementación completa, también removeríamos los nodos hijos
     removed_nodes = [node_name]
 
-    # Eliminar el nodo
-    scene.nodes.pop(idx)
+    # Identify children BEFORE removing the node (only direct children defined after it)
+    # Godot uses definition order: children always come after parent in TSCN
+    children_to_remove = [
+        i for i, n in enumerate(scene.nodes) if i > idx and n.parent == node_name
+    ]
 
-    # También remover nodos que tengan este nodo como padre
-    children_to_remove = [i for i, n in enumerate(scene.nodes) if n.parent == node_name]
-    # Eliminar en orden inverso para no afectar índices
+    # Remove children first (in reverse order to preserve indices)
     for i in reversed(children_to_remove):
         removed_nodes.append(scene.nodes[i].name)
         scene.nodes.pop(i)
+
+    # Remove the node itself (adjust index if children were removed before it)
+    # Since children were after the node, the node's index is unchanged
+    scene.nodes.pop(idx)
 
     # Guardar
     _update_scene_file(scene_path, scene)
@@ -835,9 +865,10 @@ def rename_node(
     # Renombrar
     node.name = new_name
 
-    # Actualizar referencias de nodos hijos
-    for n in scene.nodes:
-        if n.parent == old_name:
+    # Actualizar referencias de nodos hijos (solo hijos directos definidos después del nodo)
+    # Godot usa orden de definición: los hijos siempre vienen después del padre en el TSCN
+    for i, n in enumerate(scene.nodes):
+        if i > idx and n.parent == old_name:
             n.parent = new_name
 
     # Guardar
@@ -899,6 +930,15 @@ def move_node(
         return {
             "success": False,
             "error": "Cannot move node to itself",
+        }
+
+    # Validate that the new parent actually exists in the scene
+    node_names = {n.name for n in scene.nodes}
+    if new_parent != "." and new_parent not in node_names:
+        return {
+            "success": False,
+            "error": f"Parent node does not exist: '{new_parent}'",
+            "hint": "Use an existing node name or '.' for root",
         }
 
     # Mover
@@ -987,25 +1027,83 @@ def duplicate_node(
     # Agregar a la escena
     scene.nodes.append(duplicate)
 
-    # También duplicar nodos hijos
+    # También duplicar nodos hijos (recursivamente para toda la jerarquía)
     original_name = original_node.name
     duplicated_nodes = [new_name]
 
-    children = [n for n in scene.nodes if n.parent == original_name]
-    for child in children:
-        child_copy_name = new_name + "/" + child.name.split("/")[-1]
+    # Step 1: Collect all descendants in BFS order (parents before children)
+    def _collect_descendants(node_name: str) -> list[SceneNode]:
+        """Collect all descendants of a node in BFS order."""
+        descendants = []
+        queue = [node_name]
+        while queue:
+            current = queue.pop(0)
+            children = [n for n in scene.nodes if n.parent == current]
+            for child in children:
+                descendants.append(child)
+                queue.append(child.name)
+        return descendants
 
-        # Verificar que no exista
-        if not _find_node_by_path(scene, child_copy_name):
-            child_copy = SceneNode(
-                name=child.name.split("/")[-1],
-                type=child.type,
-                parent=new_name,
-                unique_name_in_owner=child.unique_name_in_owner,
-            )
-            child_copy.properties = child.properties.copy()
-            scene.nodes.append(child_copy)
-            duplicated_nodes.append(child_copy_name)
+    all_descendants = _collect_descendants(original_name)
+
+    # Step 2: Build name remap with collision avoidance
+    # Maps old_name -> new_name (renaming if needed to avoid collisions)
+    name_remap: dict[str, str] = {}
+    name_remap[original_name] = new_name
+
+    # Track all existing names in the scene for collision detection
+    existing_names = {n.name for n in scene.nodes}
+
+    def _get_unique_name(base_name: str, parent_for_context: str) -> str:
+        """Get a unique name that doesn't conflict with existing siblings."""
+        # Check if base_name conflicts with any existing node under the same parent
+        siblings_under_parent = [
+            n.name for n in scene.nodes if n.parent == parent_for_context
+        ]
+        if base_name not in siblings_under_parent and base_name not in existing_names:
+            return base_name
+
+        # Add suffix to make it unique
+        counter = 2
+        while True:
+            candidate = f"{base_name}_{counter}"
+            if (
+                candidate not in siblings_under_parent
+                and candidate not in existing_names
+            ):
+                return candidate
+            counter += 1
+
+    for desc in all_descendants:
+        # Determine the new parent for this descendant
+        if desc.parent == original_name:
+            new_parent = new_name
+        else:
+            new_parent = name_remap.get(desc.parent, desc.parent)
+
+        # Get unique name for this descendant
+        unique_name = _get_unique_name(desc.name, new_parent)
+        name_remap[desc.name] = unique_name
+
+    # Step 3: Create duplicates with remapped parents and unique names
+    for desc in all_descendants:
+        # Determine new parent
+        if desc.parent == original_name:
+            new_parent = new_name
+        else:
+            new_parent = name_remap.get(desc.parent, desc.parent)
+
+        new_name_for_desc = name_remap[desc.name]
+
+        child_copy = SceneNode(
+            name=new_name_for_desc,
+            type=desc.type,
+            parent=new_parent,
+            unique_name_in_owner=desc.unique_name_in_owner,
+        )
+        child_copy.properties = desc.properties.copy()
+        scene.nodes.append(child_copy)
+        duplicated_nodes.append(new_name_for_desc)
 
     # Guardar
     _update_scene_file(scene_path, scene)
