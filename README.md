@@ -1,4 +1,4 @@
-# Ultra Godot MCP
+# 🏴 Ultra Godot MCP
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Godot 4.6+](https://img.shields.io/badge/Godot-4.6+-478cbf?logo=godotengine&logoColor=white)](https://godotengine.org/)
@@ -10,29 +10,29 @@
 
 **Ultra Godot MCP** — *Plus Ultra*: ir más allá.
 
-Este servidor MCP no delega la creación: la **potencia**. Opera directamente sobre la materia de tu proyecto Godot — escenas, nodos, recursos, scripts — sin intermediarios, sin lanzar el editor, sin esperar. La técnica como extensión del poder operatorio del desarrollador.
+Servidor MCP para Godot Engine que permite a IAs y asistentes controlar proyectos directamente: crear escenas, manipular nodos, gestionar recursos y validar código, **todo sin abrir el editor**.
 
 ---
 
-## ✨ Capacidades
+## ✨ Características
 
-| Capacidad | Descripción |
+| Característica | Descripción |
 |---|---|
-| 🔍 **Parsing nativo TSCN** | Lee y escribe archivos `.tscn` directamente — composición sin Godot headless |
-| 🛠️ **38 herramientas** | El arsenal completo: escenas, nodos, recursos, scripts, señales, validación |
-| 🎯 **Inspector unificado** | `set_node_properties` transforma TODOS los tipos de propiedad en una sola operación |
-| 🔄 **Sesiones en memoria** | Workspace con dirty tracking y cache LRU — el estado persiste, no se reconstruye |
-| 🛡️ **Validación Poka-Yoke** | Previene el error antes de que se materialice en el archivo |
-| 🔎 **Búsqueda fuzzy** | Encuentra nodos tolerando typos — la intención importa más que la forma |
-| 📦 **Templates** | Genera estructuras de nodos y scripts GDScript desde plantillas reutilizables |
+| 🔍 **Parsing nativo TSCN** | Lee y escribe archivos `.tscn` directamente, sin Godot headless |
+| 🛠️ **38 herramientas** | Escenas, nodos, recursos, scripts, señales, validación y más |
+| 🎯 **Inspector unificado** | `set_node_properties` maneja TODOS los tipos de propiedad automáticamente |
+| 🔄 **Sesiones en memoria** | Workspace con dirty tracking, lazy loading y cache LRU |
+| 🛡️ **Validación Poka-Yoke** | Previene errores antes de escribir archivos |
+| 🔎 **Búsqueda fuzzy** | Encuentra nodos tolerando typos con `fuzzywuzzy` |
+| 📦 **Templates** | Genera estructuras de nodos y scripts GDScript desde plantillas |
 
 ---
 
 ## 🏆 Frente a otros MCPs de Godot
 
-### Composición directa vs. intermediación
+### Velocidad: composición directa vs. intermediación
 
-La diferencia fundamental es material: otros MCPs **intermedian** — lanzan `godot --headless --script` por cada operación, añadiendo 2-5 segundos de overhead. Ultra Godot MCP **compone directamente** — su parser nativo lee y escribe `.tscn` en milisegundos.
+La diferencia principal: otros MCPs lanzan `godot --headless --script` por cada operación (2-5s de overhead). Ultra Godot MCP lee y escribe `.tscn` directamente con su parser nativo — milisegundos.
 
 | Operación | [godot-mcp](https://github.com/Coding-Solo/godot-mcp) (3.1k⭐) | [GoPeak](https://github.com/GoD0Yun/Gopeak-godot-mcp) (125⭐) | Ultra Godot MCP |
 |---|---|---|---|
@@ -53,13 +53,13 @@ La diferencia fundamental es material: otros MCPs **intermedian** — lanzan `go
 | **Validación Poka-Yoke** | ❌ | ❌ | ❌ | ❌ | **✅** |
 | **Búsqueda fuzzy** | ❌ | ❌ | ❌ | ❌ | **✅** |
 | **Templates** | ❌ | ❌ | ❌ | ❌ | **✅** |
-| **Documentación en español** | ❌ | ❌ | ❌ | ❌ | **✅** |
+| **Docs en español** | ❌ | ❌ | ❌ | ❌ | **✅** |
 
-> **Nota:** GoPeak y tugcantopaloglu tienen más herramientas en número bruto, pero cada operación requiere lanzar Godot headless. Ultra Godot MCP prioriza **composición directa**: menos intermediación, más velocidad. 38 herramientas que operan a velocidad de parser nativo, no 149 que esperan al editor.
+> **Nota:** GoPeak y tugcantopaloglu tienen más herramientas en número, pero cada operación requiere lanzar Godot headless. Ultra Godot MCP prioriza velocidad: 38 herramientas que operan a velocidad de parser nativo.
 
 ### 🌎 Hecho para la comunidad hispanohablante y lusófona
 
-La comunidad de Godot en español y portugués es enorme. Las herramientas de IA para desarrollo de juegos, sin embargo, están diseñadas exclusivamente en inglés. Ultra Godot MCP **compone desde nuestra realidad material**:
+La comunidad de Godot en español y portugués es enorme, pero las herramientas de IA para desarrollo de juegos están diseñadas exclusivamente en inglés. Ultra Godot MCP nace de esa realidad:
 
 - **Documentación en español**: guías, errores y referencia técnica en tu idioma
 - **Creado por y para** desarrolladores de España, México, Argentina, Colombia, Brasil, Portugal y toda Iberoamérica
@@ -93,7 +93,7 @@ pip install -e ".[dev]"
 
 ---
 
-## 🚀 Puesta en marcha
+## 🚀 Inicio rápido
 
 ### 1. Iniciar el servidor
 
@@ -117,9 +117,7 @@ python -m godot_mcp.server
 }
 ```
 
-### 3. Operar
-
-Una vez configurado, tu asistente compone sobre tu proyecto:
+### 3. Usar con tu asistente IA
 
 ```
 → "Crea una escena Player con CharacterBody2D, CollisionShape2D y Sprite2D"
@@ -166,7 +164,7 @@ Una vez configurado, tu asistente compone sobre tu proyecto:
 set_node_properties(session_id, scene_path, node_path, properties={...})
 ```
 
-Transforma cualquier propiedad del inspector en una sola operación:
+Maneja **automáticamente** todos los tipos:
 
 | Tipo | Ejemplo |
 |---|---|
@@ -245,7 +243,7 @@ pytest tests/test_server.py -v  # Tests específicos
 src/godot_mcp/
 ├── server.py              # Entry point FastMCP
 ├── session_manager.py     # Gestión de sesiones
-├── core/                  # Núcleo operatorio
+├── core/                  # Núcleo
 │   ├── tscn_parser.py     # Parser de escenas Godot
 │   ├── tres_parser.py     # Parser de recursos
 │   ├── tscn_validator.py  # Validador de escenas
