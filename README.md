@@ -109,8 +109,8 @@ pip install godot-mcp
 ### Desde fuente
 
 ```bash
-git clone https://github.com/LordBeria/Ultra-Godot-MCP.git
-cd Ultra-Godot-MCP
+git clone https://github.com/CerebroCanibalus/ultra-godot-mcp.git
+cd ultra-godot-mcp
 
 pip install -e .
 # O con dependencias de desarrollo:
