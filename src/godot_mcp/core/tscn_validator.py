@@ -4,8 +4,10 @@ TSCN Validator - Poka-Yoke validation for Godot 4.x .tscn files
 Prevents common TSCN errors before writing scenes:
 - Root node with parent attribute
 - Duplicate ExtResource/SubResource IDs
-- Invalid node types
+- Invalid/removed/deprecated node types
 - Invalid resource references
+
+Uses NodeAPI for validation against Godot 4.6.1 known types.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ from godot_mcp.core.tscn_parser import (
     ExtResource,
     SubResource,
 )
+from godot_mcp.core.api import NodeAPI, get_node_api
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -32,272 +35,6 @@ class ValidationLevel:
     ERROR = "error"  # Blocks operation
     WARNING = "warning"  # Warns but allows
     INFO = "info"  # Informational
-
-
-# Valid Godot 4.6 node types (commonly used)
-# Source: https://docs.godotengine.org/en/4.6/classes/
-VALID_NODE_TYPES: set[str] = {
-    # Base nodes
-    "Node",
-    "Node2D",
-    "Node3D",
-    "Control",
-    "CanvasItem",
-    "CanvasLayer",
-    # 2D Nodes
-    "Sprite2D",
-    "Sprite3D",
-    "AnimatedSprite2D",
-    "AnimatedSprite3D",
-    "Label",
-    "Label3D",
-    "Button",
-    "CheckBox",
-    "CheckButton",
-    "LineEdit",
-    "TextEdit",
-    "TextureRect",
-    "TextureButton",
-    "TextureProgressBar",
-    "ProgressBar",
-    "HSlider",
-    "VSlider",
-    "ScrollBar",
-    "Panel",
-    "PanelContainer",
-    "ColorRect",
-    "BoxContainer",
-    "VBoxContainer",
-    "HBoxContainer",
-    "GridContainer",
-    "CenterContainer",
-    "MarginContainer",
-    "TabContainer",
-    "SplitContainer",
-    "HSplitContainer",
-    "VSplitContainer",
-    "AspectRatioContainer",
-    "FlowContainer",
-    "HFlowContainer",
-    "VFlowContainer",
-    "Tree",
-    "ItemList",
-    "Popup",
-    "PopupMenu",
-    "PopupPanel",
-    "OptionButton",
-    "MenuButton",
-    "SpinBox",
-    "FileDialog",
-    "ColorPicker",
-    "ConfirmationDialog",
-    "AcceptDialog",
-    "Window",
-    # 2D Physics
-    "StaticBody2D",
-    "RigidBody2D",
-    "CharacterBody2D",
-    "KinematicBody2D",  # Deprecated but valid
-    "Area2D",
-    "CollisionShape2D",
-    "CollisionPolygon2D",
-    "RayCast2D",
-    "Joint2D",
-    "PinJoint2D",
-    "GrooveJoint2D",
-    "DampedSpringJoint2D",
-    "PhysicsBody2D",
-    "CollisionObject2D",
-    "PhysicalBone2D",
-    # 3D Physics
-    "StaticBody3D",
-    "RigidBody3D",
-    "CharacterBody3D",
-    "KinematicBody3D",  # Deprecated but valid
-    "Area3D",
-    "CollisionShape3D",
-    "CollisionPolygon3D",
-    "RayCast3D",
-    "Joint3D",
-    "PinJoint3D",
-    "HingeJoint3D",
-    "SliderJoint3D",
-    "Generic6DOFJoint3D",
-    "ConeTwistJoint3D",
-    "PhysicsBody3D",
-    "CollisionObject3D",
-    "PhysicalBone3D",
-    "VehicleBody3D",
-    "VehicleWheel3D",
-    "SoftBody3D",
-    # Cameras & Lights
-    "Camera2D",
-    "Camera3D",
-    "AudioListener2D",
-    "AudioListener3D",
-    "AudioStreamPlayer",
-    "AudioStreamPlayer2D",
-    "AudioStreamPlayer3D",
-    "Light2D",
-    "Light3D",
-    "DirectionalLight2D",
-    "DirectionalLight3D",
-    "OmniLight3D",
-    "SpotLight3D",
-    "PointLight2D",
-    # Navigation
-    "NavigationAgent2D",
-    "NavigationAgent3D",
-    "NavigationRegion2D",
-    "NavigationRegion3D",
-    "NavigationLink2D",
-    "NavigationLink3D",
-    "NavigationObstacle2D",
-    "NavigationObstacle3D",
-    # Paths & Follows
-    "Path2D",
-    "Path3D",
-    "PathFollow2D",
-    "PathFollow3D",
-    # Tilemaps & Grids
-    "TileMap",
-    "TileMapLayer",
-    "GridMap",
-    # Containers
-    "SubViewport",
-    "SubViewportContainer",
-    "Viewport",
-    "CanvasGroup",
-    "Parallax2D",
-    "ParallaxBackground",
-    "ParallaxLayer",
-    # Visuals
-    "Line2D",
-    "Polygon2D",
-    "MultiMeshInstance2D",
-    "MeshInstance2D",
-    "MeshInstance3D",
-    "BackBufferCopy",
-    "CPUParticles2D",
-    "CPUParticles3D",
-    "GPUParticles2D",
-    "GPUParticles3D",
-    "WorldEnvironment",
-    "FogVolume",
-    "Decal",
-    "ReflectionProbe",
-    "LightmapGI",
-    "VoxelGI",
-    # UI
-    "RichTextLabel",
-    "CodeEdit",
-    "ReferenceRect",
-    "Tabs",
-    "TabBar",
-    "MenuBar",
-    "Separator",
-    "HSeparator",
-    "VSeparator",
-    "ScrollContainer",
-    "NinePatchRect",
-    "GraphEdit",
-    "GraphNode",
-    # Animation
-    "AnimationPlayer",
-    "AnimationTree",
-    "AnimationMixer",
-    "AnimatorPlayer",  # Legacy
-    # 骨骼
-    "Skeleton2D",
-    "Skeleton3D",
-    "Bone2D",
-    "BoneAttachment3D",
-    "SkeletonIK3D",
-    "PhysicalBoneSimulator3D",
-    # Markers
-    "Marker2D",
-    "Marker3D",
-    "RemoteTransform2D",
-    "RemoteTransform3D",
-    # Multiplayer
-    "MultiplayerSpawner",
-    "MultiplayerSynchronizer",
-    # XR
-    "XROrigin3D",
-    "XRCamera3D",
-    "XRController3D",
-    "XRAnchor3D",
-    "XRNode3D",
-    # Others
-    "Timer",
-    "Tween",
-    "ResourcePreloader",
-    "VisibilityNotifier2D",
-    "VisibilityNotifier3D",
-    "VisibleOnScreenNotifier2D",
-    "VisibleOnScreenNotifier3D",
-    "VisibleOnScreenEnabler2D",
-    "VisibleOnScreenEnabler3D",
-    "ShapeCast2D",
-    "ShapeCast3D",
-    "AudioStreamPlayer",  # Legacy 3.x
-    "HTTPRequest",
-    "WebSocketPeer",
-    "WebSocketMultiplayerPeer",
-    "TCPServer",
-    "TCPStreamPeer",
-    "UDPServer",
-    "PacketPeer",
-    "PacketPeerStream",
-    "PacketPeerUDP",
-    # Editor nodes (sometimes in scenes)
-    "EditorNode3DGizmo",
-    "EditorNode3DGizmoPlugin",
-    # Missing/placeholder (edge cases)
-    "MissingNode",
-    "InstancePlaceholder",
-    # Godot 4.x new nodes
-    "AimModifier3D",
-    "IKModifier3D",
-    "ConvertTransformModifier3D",
-    "CopyTransformModifier3D",
-    "RetargetModifier3D",
-    "LookAtModifier3D",
-    "LimitAngularVelocityModifier3D",
-    "CCDIK3D",
-    "ChainIK3D",
-    "FABRIK3D",
-    "IterateIK3D",
-    "JacobianIK3D",
-    "SplineIK3D",
-    "TwoBoneIK3D",
-    "SkeletonModifier3D",
-    "BoneConstraint3D",
-    "BoneTwistDisperser3D",
-    "SpringBoneCollision3D",
-    "SpringBoneCollisionCapsule3D",
-    "SpringBoneCollisionPlane3D",
-    "SpringBoneCollisionSphere3D",
-    "SpringBoneSimulator3D",
-    "ModifierBoneTarget3D",
-    "GPUParticlesAttractor3D",
-    "GPUParticlesAttractorBox3D",
-    "GPUParticlesAttractorSphere3D",
-    "GPUParticlesAttractorVectorField3D",
-    "GPUParticlesCollision3D",
-    "GPUParticlesCollisionBox3D",
-    "GPUParticlesCollisionHeightField3D",
-    "GPUParticlesCollisionSDF3D",
-    "GPUParticlesCollisionSphere3D",
-    "LightOccluder2D",
-    "OccluderInstance3D",
-    "OccluderPolygon2D",
-    "ImporterMeshInstance3D",
-    "FogMaterial",  # Resource
-    "NavigationMesh",  # Resource
-    # Last resort - allow any custom class
-    # Custom scripts may extend Node with class_name
-}
 
 
 @dataclass
@@ -351,16 +88,19 @@ class TSCNValidator:
     Validates TSCN scenes before writing (Poka-Yoke)
 
     Prevents common errors that cause Godot to reject scenes.
+    Uses NodeAPI for intelligent validation against Godot 4.6.1 types.
     """
 
-    def __init__(self, project_path: str | None = None) -> None:
+    def __init__(self, project_path: str | None = None, node_api: NodeAPI | None = None) -> None:
         """Initialize validator with all rules
 
         Args:
             project_path: Absolute path to the Godot project. If provided,
                 the validator will check that ExtResource files exist on disk.
+            node_api: Optional NodeAPI instance. If None, uses singleton.
         """
         self.project_path = project_path
+        self._node_api = node_api or get_node_api()
         self.rules: list[ValidationRule] = [
             # Rule 1: Root node cannot have parent
             ValidationRule(
@@ -388,6 +128,20 @@ class TSCNValidator:
                 name="valid_node_types",
                 check=self._check_valid_node_types,
                 message="Invalid node type '{type}' for node '{name}'",
+                level=ValidationLevel.ERROR,
+            ),
+            # Rule 4b: Removed/deprecated node types (more specific error)
+            ValidationRule(
+                name="removed_node_types",
+                check=self._check_removed_node_types,
+                message="Removed/deprecated node type: {type} - {reason}",
+                level=ValidationLevel.ERROR,
+            ),
+            # Rule 4c: Resource used as node type (common mistake)
+            ValidationRule(
+                name="resource_not_node",
+                check=self._check_resource_as_node,
+                message="'{type}' is a resource, not a node type. Did you mean to use a different node?",
                 level=ValidationLevel.ERROR,
             ),
             # Rule 5: Valid resource references
@@ -484,15 +238,46 @@ class TSCNValidator:
         return len(ids) == len(set(ids))
 
     def _check_valid_node_types(self, scene: Scene) -> bool:
-        """Check that all node types are valid Godot types"""
+        """Check that all node types are valid Godot 4.6 types
+
+        Uses NodeAPI to validate against known types, detect removed types,
+        and identify resources that are incorrectly used as nodes.
+        """
         for node in scene.nodes:
-            if node.type and node.type not in VALID_NODE_TYPES:
-                logger.warning(
-                    f"Unknown node type '{node.type}' for node '{node.name}'. "
-                    f"This may cause loading issues."
-                )
-                # Allow custom types (class_name scripts) but warn
-        return True  # Don't block - custom types are common
+            if not node.type:
+                continue
+
+            # Use NodeAPI for intelligent validation
+            validation = self._node_api.validate_type(node.type)
+
+            # Check for removed types (ERROR - blocks)
+            is_removed, _ = self._node_api.is_removed_node(node.type)
+            if is_removed:
+                return False
+
+            # Log issues for unknown/custom types (warning only)
+            if not validation["is_valid"]:
+                for issue in validation["issues"]:
+                    logger.warning(f"Node '{node.name}' has {issue}")
+
+        return True  # Don't block for custom types (class_name scripts are valid)
+
+    def _check_removed_node_types(self, scene: Scene) -> bool:
+        """Check for node types that were removed in Godot 4"""
+        for node in scene.nodes:
+            if node.type:
+                is_removed, _ = self._node_api.is_removed_node(node.type)
+                if is_removed:
+                    return False
+        return True
+
+    def _check_resource_as_node(self, scene: Scene) -> bool:
+        """Check for resources incorrectly used as node types"""
+        for node in scene.nodes:
+            if node.type:
+                if self._node_api.is_resource_not_node(node.type):
+                    return False
+        return True
 
     def _check_valid_resource_refs(self, scene: Scene) -> bool:
         """Check that all ExtResource/SubResource references are valid"""
@@ -545,10 +330,7 @@ class TSCNValidator:
                 full_path = os.path.join(self.project_path, relative_path)
 
                 if not os.path.exists(full_path):
-                    logger.warning(
-                        f"ExtResource file does not exist: {resource.path} "
-                        f"(resolved to {full_path})"
-                    )
+                    logger.warning(f"ExtResource file does not exist: {resource.path} (resolved to {full_path})")
                     return False
         return True
 
@@ -670,13 +452,9 @@ class TSCNValidator:
 
         # Log results
         if result.errors:
-            logger.error(
-                f"Validation failed with {len(result.errors)} errors: {result.errors}"
-            )
+            logger.error(f"Validation failed with {len(result.errors)} errors: {result.errors}")
         if result.warnings:
-            logger.warning(
-                f"Validation found {len(result.warnings)} warnings: {result.warnings}"
-            )
+            logger.warning(f"Validation found {len(result.warnings)} warnings: {result.warnings}")
 
         return result
 
@@ -701,16 +479,11 @@ class TSCNValidator:
         if node.parent not in (".", ""):
             node_names = {n.name for n in scene.nodes}
             if node.parent != "." and node.parent not in node_names:
-                result.add_warning(
-                    f"Node '{node.name}' has parent '{node.parent}' "
-                    f"that doesn't exist in scene"
-                )
+                result.add_warning(f"Node '{node.name}' has parent '{node.parent}' that doesn't exist in scene")
 
         return result
 
-    def _substitute_template(
-        self, rule: ValidationRule, scene: Scene, message: str
-    ) -> str:
+    def _substitute_template(self, rule: ValidationRule, scene: Scene, message: str) -> str:
         """Substitute template variables in error messages"""
         # For duplicate ID rules
         if "id" in message.lower():
@@ -729,19 +502,61 @@ class TSCNValidator:
                         return message.format(id=i)
                     seen.add(i)
 
+        # For removed/deprecated node types
+        if rule.name == "removed_node_types" and "{type}" in message:
+            for node in scene.nodes:
+                if node.type:
+                    is_removed, detail = self._node_api.is_removed_node(node.type)
+                    if is_removed:
+                        replacement = self._node_api.get_replacement(node.type) or "N/A"
+                        reason = f"use '{replacement}' instead"
+                        try:
+                            return message.format(type=node.type, name=node.name, reason=reason)
+                        except KeyError:
+                            return f"'{node.type}' was removed in Godot 4. Use '{replacement}' instead."
+
+        # For resource-not-node errors
+        if rule.name == "resource_not_node" and "{type}" in message:
+            for node in scene.nodes:
+                if node.type and self._node_api.is_resource_not_node(node.type):
+                    return message.format(type=node.type, name=node.name)
+
         # For node type/name rules
         if "{type}" in message or "{name}" in message:
             for node in scene.nodes:
-                if node.type not in VALID_NODE_TYPES:
-                    try:
-                        return message.format(
-                            type=node.type, name=node.name, parent=node.parent
-                        )
-                    except KeyError:
+                if node.type:
+                    # Check for removed types
+                    is_removed, _ = self._node_api.is_removed_node(node.type)
+                    if is_removed:
                         try:
-                            return message.format(type=node.type, name=node.name)
+                            return message.format(type=node.type, name=node.name, parent=node.parent)
                         except KeyError:
-                            return message
+                            try:
+                                return message.format(type=node.type, name=node.name)
+                            except KeyError:
+                                return message
+
+                    # Check for invalid types
+                    validation = self._node_api.validate_type(node.type)
+                    if not validation["is_valid"]:
+                        try:
+                            return message.format(type=node.type, name=node.name, parent=node.parent)
+                        except KeyError:
+                            try:
+                                return message.format(type=node.type, name=node.name)
+                            except KeyError:
+                                return message
+
+                    # Check for invalid types
+                    validation = self._node_api.validate_type(node.type)
+                    if not validation["is_valid"]:
+                        try:
+                            return message.format(type=node.type, name=node.name, parent=node.parent)
+                        except KeyError:
+                            try:
+                                return message.format(type=node.type, name=node.name)
+                            except KeyError:
+                                return message
 
         # For resource reference rules
         if "{ref_type}" in message:
@@ -753,13 +568,9 @@ class TSCNValidator:
                     if ref:
                         ref_type, ref_id = ref
                         if ref_type == "ExtResource" and ref_id not in valid_ext:
-                            return message.format(
-                                ref_type=ref_type, ref=ref_id, node=node.name
-                            )
+                            return message.format(ref_type=ref_type, ref=ref_id, node=node.name)
                         if ref_type == "SubResource" and ref_id not in valid_sub:
-                            return message.format(
-                                ref_type=ref_type, ref=ref_id, node=node.name
-                            )
+                            return message.format(ref_type=ref_type, ref=ref_id, node=node.name)
 
         # For parent path rules
         if "{parent}" in message:
@@ -777,9 +588,7 @@ class TSCNValidator:
                 return message.format(detail="load_steps must be >= 0")
             actual_resources = len(scene.ext_resources) + len(scene.sub_resources)
             if actual_resources > 0 and scene.header.load_steps == 0:
-                return message.format(
-                    detail=f"load_steps=0 but {actual_resources} resources defined"
-                )
+                return message.format(detail=f"load_steps=0 but {actual_resources} resources defined")
             return message.format(detail="unknown header issue")
 
         # For ext_resource_files_exist rule
@@ -794,11 +603,7 @@ class TSCNValidator:
                         return message.format(path=resource.path)
 
         # For unique sibling node names rule
-        if (
-            rule.name == "unique_sibling_node_names"
-            and "{name}" in message
-            and "{parent}" in message
-        ):
+        if rule.name == "unique_sibling_node_names" and "{name}" in message and "{parent}" in message:
             seen: dict[tuple[str, str], str] = {}
             for node in scene.nodes:
                 key = (node.parent, node.name)
@@ -829,6 +634,7 @@ def validate_scene(
     scene: Scene,
     project_path: str | None = None,
     raise_on_error: bool = True,
+    node_api: NodeAPI | None = None,
 ) -> ValidationResult:
     """
     Convenience function to validate a scene
@@ -838,6 +644,7 @@ def validate_scene(
         project_path: Absolute path to the Godot project. If provided,
             the validator will check that ExtResource files exist on disk.
         raise_on_error: If True, raise ValueError on validation failure
+        node_api: Optional NodeAPI instance for type validation
 
     Returns:
         ValidationResult
@@ -845,7 +652,7 @@ def validate_scene(
     Raises:
         ValueError: If raise_on_error=True and validation fails
     """
-    validator = TSCNValidator(project_path=project_path)
+    validator = TSCNValidator(project_path=project_path, node_api=node_api)
     result = validator.validate(scene)
     if raise_on_error:
         validator.raise_on_error(result)

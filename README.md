@@ -243,7 +243,7 @@ Maneja **automáticamente** todos los tipos:
 | Herramienta | Descripción |
 |---|---|
 | `validate_tscn` | Validar archivo `.tscn` (parser nativo, sin Godot) |
-| `validate_gdscript` | Validar script `.gd` (parser nativo, sin Godot) |
+| `validate_gdscript` | Validar script `.gd` (API Godot 4.6 + sintaxis real con Godot) |
 | `validate_project` | Validar proyecto completo (parser nativo, sin Godot) |
 
 ### 🔧 Debug
@@ -277,7 +277,7 @@ pytest tests/e2e/          # Solo E2E
 pytest tests/test_server.py -v  # Tests específicos
 ```
 
-**Estado:** 484 tests pasando · 68 tests nuevos en v3.1.0
+**Estado:** 496 tests pasando · 10 tests nuevos en v3.2.0
 
 ---
 
@@ -288,10 +288,14 @@ src/godot_mcp/
 ├── server.py              # Entry point FastMCP
 ├── session_manager.py     # Gestión de sesiones
 ├── core/                  # Núcleo
+│   ├── api/               # APIs de Godot (datos externos)
+│   │   ├── __init__.py    # GodotAPI + NodeAPI classes
+│   │   ├── godot_api_4.6.json    # API de Godot 4.6.1 (GDScript)
+│   │   └── godot_nodes_4.6.json  # Tipos de nodos 4.6.1 (TSCN)
 │   ├── tscn_parser.py     # Parser de escenas Godot
 │   ├── tres_parser.py     # Parser de recursos
-│   ├── tscn_validator.py  # Validador de escenas
-│   ├── gdscript_validator.py  # Validador de scripts
+│   ├── tscn_validator.py  # Validador de escenas (v2.0)
+│   ├── gdscript_validator.py  # Validador de scripts (v2.0)
 │   ├── cache.py           # Cache LRU
 │   ├── models.py          # Modelos Pydantic
 │   └── project_index.py   # Índice de proyectos

@@ -3,18 +3,24 @@ Validation Tools - Herramientas MCP para validar escenas y scripts.
 
 Expone los validadores TSCN y GDScript como herramientas MCP
 para que los LLMs puedan verificar archivos antes de guardarlos.
+
+El validador de GDScript usa una arquitectura de 3 capas:
+1. Godot real (sintaxis) - via godot_check_script_syntax
+2. API de Godot 4.6 (métodos/propiedades) - via godot_api.json
+3. Análisis de patrones (decorators deprecated, etc.)
 """
 
 from __future__ import annotations
 
 import logging
 import os
+from typing import Optional
 
 from fastmcp import FastMCP
 
 from godot_mcp.core.gdscript_validator import (
     GDScriptValidator,
-    validate_gdscript as _validate_gdscript_core,
+    validate_gdscript as _validate_gdscript_api,
 )
 from godot_mcp.core.tscn_parser import parse_tscn
 from godot_mcp.core.tscn_validator import (
@@ -107,24 +113,29 @@ def validate_tscn(
 def validate_gdscript(
     script_path: str | None = None,
     script_content: str | None = None,
+    project_path: str | None = None,
     strict: bool = False,
+    use_godot_syntax: bool = True,
 ) -> dict:
     """
-    Validate a GDScript file for common errors.
+    Validate a GDScript file using intelligent validation.
 
-    Checks:
-    - Undeclared variables (warnings)
-    - Undeclared functions (warnings)
-    - Node references with $ (info)
-    - Built-in function recognition
+    This validator uses a 3-layer architecture:
+    1. Godot real syntax (via godot_check_script_syntax) - if project_path provided
+    2. Godot 4.6 API (methods/properties) - always enabled
+    3. Pattern analysis (deprecated decorators, etc.) - always enabled
 
-    NOTE: This is static analysis, not a full parser.
-    It may produce false positives for complex patterns.
+    NOTE: This validator does NOT attempt to detect "undeclared variables"
+    as GDScript is too dynamic for static analysis. Use godot_check_script_syntax
+    for real syntax errors.
 
     Args:
         script_path: Path to the .gd file (mutually exclusive with script_content).
         script_content: Raw GDScript content (mutually exclusive with script_path).
+        project_path: Path to Godot project (for syntax checking with Godot).
         strict: If True, warnings also block validation.
+        use_godot_syntax: If True and project_path provided, uses Godot for
+                          real syntax checking (recommended).
 
     Returns:
         Dict with validation results:
@@ -133,11 +144,17 @@ def validate_gdscript(
         - error_count: Number of errors
         - warning_count: Number of warnings
         - info_count: Number of info messages
+        - validation_mode: "api_only" or "api_plus_godot"
 
     Example:
-        result = validate_gdscript(script_path="scripts/player.gd")
-        for issue in result["issues"]:
-            print(f"Line {issue['line']}: {issue['message']}")
+        # API only (no Godot needed)
+        result = validate_gdscript(script_content="extends Node")
+
+        # Full validation with Godot
+        result = validate_gdscript(
+            script_path="res://scripts/Player.gd",
+            project_path="D:/MyGame"
+        )
     """
     try:
         # Get script content
@@ -147,17 +164,18 @@ def validate_gdscript(
                 "error": "Provide either script_path OR script_content, not both",
             }
 
+        resolved_script_path = script_path
         if script_path:
             if not script_path.endswith(".gd"):
-                script_path = script_path + ".gd"
+                resolved_script_path = script_path + ".gd"
 
-            if not os.path.isfile(script_path):
+            if not os.path.isfile(resolved_script_path):
                 return {
                     "success": False,
-                    "error": f"Script file not found: {script_path}",
+                    "error": f"Script file not found: {resolved_script_path}",
                 }
 
-            with open(script_path, "r", encoding="utf-8") as f:
+            with open(resolved_script_path, "r", encoding="utf-8") as f:
                 content = f.read()
         elif script_content:
             content = script_content
@@ -167,8 +185,47 @@ def validate_gdscript(
                 "error": "Provide either script_path or script_content",
             }
 
-        # Validate
-        result = _validate_gdscript_core(content)
+        # Perform validation
+        validator = GDScriptValidator()
+        validation_mode = "api_only"
+
+        # Try Godot syntax check if project_path provided
+        godot_result = None
+        if project_path and use_godot_syntax and script_path:
+            try:
+                from godot_mcp.tools.debug_tools import check_script_syntax
+
+                # Determine script path for Godot
+                if script_path.startswith("res://"):
+                    godot_script_path = script_path
+                else:
+                    # Convert absolute path to res://
+                    try:
+                        from pathlib import Path
+
+                        project_abs = Path(project_path).resolve()
+                        script_abs = Path(resolved_script_path).resolve()
+                        relative = script_abs.relative_to(project_abs)
+                        godot_script_path = f"res://{relative.as_posix()}"
+                    except ValueError:
+                        # Not under project, use absolute path
+                        godot_script_path = resolved_script_path
+
+                godot_result = check_script_syntax(
+                    project_path=project_path,
+                    script_path=godot_script_path,
+                    timeout=30,
+                )
+                validation_mode = "api_plus_godot"
+            except Exception as e:
+                logger.warning(f"Godot syntax check failed: {e}")
+                godot_result = None
+
+        # Combine results
+        if godot_result and godot_result.get("success") is not None:
+            result = validator.validate_with_godot(content, godot_result)
+        else:
+            result = validator.validate(content)
 
         # In strict mode, warnings also count as failures
         has_errors = any(i.severity == "error" for i in result.issues)
@@ -200,6 +257,7 @@ def validate_gdscript(
             "error_count": error_count,
             "warning_count": warning_count,
             "info_count": info_count,
+            "validation_mode": validation_mode,
         }
 
     except Exception as e:
@@ -266,9 +324,7 @@ def validate_project(
 
         # Validate TSCN files
         for tscn_file in tscn_files:
-            file_result = validate_tscn(
-                str(tscn_file), project_path=project_path, strict=strict
-            )
+            file_result = validate_tscn(str(tscn_file), project_path=project_path, strict=strict)
             results["files_checked"] += 1
             results["total_errors"] += file_result.get("error_count", 0)
             results["total_warnings"] += file_result.get("warning_count", 0)
@@ -287,9 +343,14 @@ def validate_project(
                 }
             )
 
-        # Validate GDScript files
+        # Validate GDScript files with project path for Godot syntax check
         for gd_file in gd_files:
-            file_result = validate_gdscript(script_path=str(gd_file), strict=strict)
+            file_result = validate_gdscript(
+                script_path=str(gd_file),
+                project_path=project_path,
+                strict=strict,
+                use_godot_syntax=True,
+            )
             results["files_checked"] += 1
             results["total_errors"] += file_result.get("error_count", 0)
             results["total_warnings"] += file_result.get("warning_count", 0)

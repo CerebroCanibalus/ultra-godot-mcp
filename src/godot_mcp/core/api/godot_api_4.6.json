@@ -1,0 +1,370 @@
+{
+  "version": "4.6.1",
+  "description": "API de Godot Engine 4.6.1 para validación de GDScript",
+  "source": "https://docs.godotengine.org/en/4.6/",
+
+  "builtin_types": {
+    "void": {"methods": [], "properties": []},
+    "bool": {"methods": ["to_int", "to_string"], "properties": []},
+    "int": {"methods": ["abs", "snapped", "to_float", "to_string"], "properties": []},
+    "float": {"methods": ["abs", "ceil", "floor", "round", "snapped", " lerp", "lerpf", "move_toward", "posmod", "fposmod", "posmodv", "fposmodv", "ease", "decibel_to_linear", "linear_to_decibel"], "properties": []},
+    "String": {"methods": ["to_int", "to_float", "to_lower", "to_upper", "strip_edges", "split", "split_floats", "join", "pad_decimals", "pad_zeros", "is_empty", "is_valid_identifier", "is_valid_html_color", "is_valid_ip_address", "contains", "begins_with", "ends_with", "replace", "replace_first", "count", "countn", "format", "sprintf"], "properties": []},
+    "StringName": {"methods": [], "properties": []},
+    "Vector2": {"methods": ["abs", "angle", "angle_to", "angle_to_point", "ceil", "clamp", "cross", "dot", "floor", "fposmod", "from_angle", "is_normalized", "length", "length_squared", "lerp", "lerp_angle", "move_toward", "normalized", "posmod", "posmodv", "reflect", "reflect_approx", "rotated", "round", "sign", "slerp", "snapped", "to_array"], "properties": ["x", "y", "zero", "one", "up", "down", "left", "right", "inf", "neg_inf"]},
+    "Vector2i": {"methods": ["abs", "clamp", "dot", "floor", "posmod", "posmodv", "snapped", "sign"], "properties": ["x", "y", "zero", "one", "up", "down", "left", "right"]},
+    "Vector3": {"methods": ["abs", "angle_to", "ceil", "clamp", "cross", "dot", "floor", "fposmod", "from_angle", "is_normalized", "length", "length_squared", "lerp", "lerp_vector3", "move_toward", "normalized", "outer", "posmod", "posmodv", "reflect", "rotated", "round", "sign", "slerp", "snapped", "to_dict"], "properties": ["x", "y", "z", "zero", "one", "up", "down", "left", "right", "inf", "neg_inf"]},
+    "Vector3i": {"methods": ["abs", "clamp", "dot", "floor", "posmod", "posmodv", "sign"], "properties": ["x", "y", "z", "zero", "one", "up", "down", "left", "right"]},
+    "Vector4": {"methods": ["abs", "ceil", "clamp", "floor", "round", "sign"], "properties": ["x", "y", "z", "w", "zero", "one"]},
+    "Vector4i": {"methods": ["abs", "clamp", "sign"], "properties": ["x", "y", "z", "w", "zero", "one"]},
+    "Transform2D": {"methods": ["basis_xform", "basis_xform_inv", "det", "flip_x", "flip_y", "from_axis_angle_override", "from_values_override", "indicator", "indicator_local", "interpolate_with", "inverse", "orthonormalized", "rotated", "scaled", "translated", "xform", "xform_inv", "xform_vector2"], "properties": ["origin", "rotation", "rotation_degrees", "scale", "skew"]},
+    "Transform3D": {"methods": ["affine_inverse", "basis_xform", "basis_xform_inv", "determinant", "from_prefixed", "get_rotation_quaternion", "get_scale", "get_skew", "indicator", "indicator_local", "interpolate_with", "inverse", "is_conformal", "look_at", "orthonormalized", "rotated", "rotated_local", "scaled", "scaled_local", "translated", "translated_local", "xform", "xform_inv", "xform_vector3"], "properties": ["origin", "basis"]},
+    "Rect2": {"methods": ["abs", "clip", "contains", "contains_point", "encloses", "expand", "expand_to", "get_area", "grow", "grow_individual", "grow_margin", "has_area", "has_point", "hit_test", "intersection", "intersects", "merge", "normalize"], "properties": ["end", "position", "size", "zero"]},
+    "Rect2i": {"methods": ["abs", "clip", "contains", "contains_point", "encloses", "expand", "expand_to", "get_area", "grow", "grow_individual", "grow_margin", "has_area", "has_point", "intersection", "intersects", "merge"], "properties": ["end", "position", "size", "zero"]},
+    "Array": {"methods": ["append", "append_array", "assign", "back", "count", "clear", "contains", "duplicate", "erase", "fill", "find", "find_last", "front", "get", "has", "hash", "insert", "is_empty", "max", "min", "pick_random", "pop_back", "pop_front", "push_back", "push_front", "remove_at", "resize", "reverse", "rfind", "shuffle", "size", "slice", "sort", "splice"], "properties": ["size"]},
+    "Dictionary": {"methods": ["clear", "contains_key", "duplicate", "erase", "get", "has", "has_all", "hash", "is_empty", "keys", "make_read_only", "merge", "pick_random", "size", "values"], "properties": []},
+    "Callable": {"methods": ["bind", "call", "call_deferred", "callv", "is_valid", "rpc", "rpc_id"], "properties": []},
+    "Signal": {"methods": ["connect", "disconnect", "emit", "get_connection_count", "is_connected"], "properties": []},
+    "Color": {"methods": ["blend", "clamp", "contrasted", "darkened", "from_hsv", "from_ok_hsl", "from_rgba", "get_luminance", "hex", "hex64", "html", "html_is_valid", "lerp", "lightened", "linear_to_srgb", "premultiplied_alpha", "srgb_to_linear", "to_argb32", "to_argb64", "to_html", "to_rgba32", "to_rgba64"], "properties": ["r", "g", "b", "a", "heximal", "html", "is_empty", "is_finite", "red", "green", "blue", "alpha"]},
+    "NodePath": {"methods": ["get_as_property_path", "get_concatenated_subnames", "get_concatenated_names", "get_name", "get_name_count", "get_subname", "get_subname_count", "has_subnames", "is_absolute", "is_empty"], "properties": []},
+    "PackedByteArray": {"methods": ["append", "append_array", "back", "bsearch", "bsearch_custom", "clear", "count", "decode_double", "decode_float", "decode_int16", "decode_int32", "decode_int64", "decode_int8", "decode_sint16", "decode_sint32", "decode_sint64", "decode_sint8", "decode_string", "decode_string_count", "decode_uint16", "decode_uint32", "decode_uint64", "decode_uint8", "encode_double", "encode_float", "encode_int16", "encode_int32", "encode_int64", "encode_int8", "encode_sint16", "encode_sint32", "encode_sint64", "encode_sint8", "encode_string", "encode_uint16", "encode_uint32", "encode_uint64", "encode_uint8", "erase", "fill", "find", "find_last", "front", "get", "has", "hash", "insert", "is_empty", "last", "make_read_only", "pick_random", "pop_back", "pop_front", "push_back", "push_front", "remove_at", "resize", "reverse", "rfind", "set", "shuffle", "size", "slice", "sort", "to_byte_array"], "properties": []},
+    "PackedColorArray": {"methods": ["append", "append_array", "count", "erase", "fill", "find", "find_last", "get", "has", "hash", "insert", "is_empty", "make_read_only", "pick_random", "pop_back", "pop_front", "push_back", "push_front", "remove_at", "resize", "reverse", "rfind", "set", "shuffle", "size", "sort"], "properties": []},
+    "PackedFloat32Array": {"methods": ["append", "append_array", "bsearch", "count", "encode", "erase", "fill", "find", "find_last", "get", "has", "hash", "insert", "is_empty", "make_read_only", "pick_random", "pop_back", "pop_front", "push_back", "push_front", "remove_at", "resize", "reverse", "rfind", "set", "shuffle", "size", "sort", "to_float32_array"], "properties": []},
+    "PackedFloat64Array": {"methods": ["append", "append_array", "bsearch", "count", "encode", "erase", "fill", "find", "find_last", "get", "has", "hash", "insert", "is_empty", "make_read_only", "pick_random", "pop_back", "pop_front", "push_back", "push_front", "remove_at", "resize", "reverse", "rfind", "set", "shuffle", "size", "sort", "to_float64_array"], "properties": []},
+    "PackedInt32Array": {"methods": ["append", "append_array", "bsearch", "bsearch_custom", "count", "decode", "encode", "erase", "fill", "find", "find_last", "get", "has", "hash", "insert", "is_empty", "make_read_only", "pick_random", "pop_back", "pop_front", "push_back", "push_front", "remove_at", "resize", "reverse", "rfind", "set", "shuffle", "size", "sort", "to_int_array"], "properties": []},
+    "PackedInt64Array": {"methods": ["append", "append_array", "bsearch", "bsearch_custom", "count", "decode", "encode", "erase", "fill", "find", "find_last", "get", "has", "hash", "insert", "is_empty", "make_read_only", "pick_random", "pop_back", "pop_front", "push_back", "push_front", "remove_at", "resize", "reverse", "rfind", "set", "shuffle", "size", "sort", "to_int_array"], "properties": []},
+    "PackedStringArray": {"methods": ["append", "append_array", "count", "erase", "fill", "find", "find_last", "get", "has", "hash", "insert", "is_empty", "join", "make_read_only", "pick_random", "pop_back", "pop_front", "push_back", "push_front", "remove_at", "resize", "reverse", "rfind", "set", "shuffle", "size", "sort"], "properties": []},
+    "PackedVector2Array": {"methods": ["append", "append_array", "count", "erase", "fill", "find", "find_last", "get", "has", "hash", "insert", "is_empty", "make_read_only", "pick_random", "pop_back", "pop_front", "push_back", "push_front", "remove_at", "resize", "reverse", "rfind", "set", "shuffle", "size", "sort", "to_vector2_array"], "properties": []},
+    "PackedVector3Array": {"methods": ["append", "append_array", "count", "erase", "fill", "find", "find_last", "get", "has", "hash", "insert", "is_empty", "make_read_only", "pick_random", "pop_back", "pop_front", "push_back", "push_front", "remove_at", "resize", "reverse", "rfind", "set", "shuffle", "size", "sort", "to_vector3_array"], "properties": []},
+    "RID": {"methods": ["get_id", "is_valid", "operator <", "operator ==", "operator !="], "properties": []},
+    "Object": {"methods": ["call", "call_deferred", "callv", "duplicate", "emit_signal", "find_property", "get", "get_class", "get_script", "get_property_list", "has_method", "has_property", "has_user_signal", "is_class", "is_instance_valid", "is_queued_for_deletion", "notification", "property_can_revert", "property_get_revert", "set", "set_deferred", "to_string", "validate_property"], "properties": ["class_name"]}
+  },
+
+  "nodes": {
+    "Node": {
+      "extends_hint": null,
+      "properties": ["name", "scene_file_path", "unique_name_in_owner", "process_mode", "process_priority", "process_physics_priority", "thread_group", "multiplayer_authority", "scene_unique_counter", "tree_entered", "tree_exiting", "tree_exited", "ready", "display_folded", "modification_counter", "owner", "visible"],
+      "methods": ["_enter_tree", "_exit_tree", "_get_configuration_warnings", "_get_tree", "_init", "_input", "_physics_process", "_process", "_ready", "_shortcut_input", "_unhandled_input", "_unhandled_key_input", "_validate_property", "add_child", "add_sibling", "add_to_group", "call_deferred", "call_group", "call_group_flags", "callv", "cancel_connect", "child_order_changed", "create_instance", "duplicate", "emit_signal", "find_child", "find_children", "find_parent", "force_call_group", "force_input_sync", "get", "get_child", "get_child_count", "get_children", "get_groups", "get_index", "get_meta", "get_meta_list", "get_multiline_trailing_substring_character", "get_node", "get_node_or_null", "get_parent", "get_path", "get_path_to", "get_physics_process_delta_time", "get_process_delta_time", "get_process_priority", "get_property_list", "get_script", "get_scene", "get_script_list", "get_thread_group", "get_tree", "get_viewport", "get_window", "has_meta", "has_method", "has_node", "has_node_and_resource", "has_overlapping_areas", "has_overlapping_bodies", "input", "instance", "instantiate", "is_ancestor_of", "is_display_folded", "is_greater_than", "is_in_group", "is_inside_tree", "is_instance_of", "is_instance_valid", "is_queued_for_deletion", "is_readied", "move_child", "notify_deferred_thread_group_call", "notify_property_list_changed", "notify_runtime_cached", "print_child_tree", "print_tree", "print_tree_pretty", "propagate_notification", "propagate_call_deferred", "raise", "reload_from_file", "remove_from_group", "remove_meta", "remove_child", "rename", "replace_by", "reparent", "rpc", "rpc_config", "rpc_id", "set", "set", "set_", "set_deferred", "set_display_folded", "set_meta", "set_meta_list", "set_modification_counter", "set_process_priority", "set_script", "set_input_as_handled", "set_process", "set_physics_process", "set_process_input", "set_process_internal", "set_process_mode", "transfer_meta", "try_call", "try_get", "update_configuration_warnings", "update_gizos"],
+      "signals": ["child_entered_tree", "child_exiting_tree", "child_order_changed", "ready", "renamed", "tree_entered", "tree_exiting", "tree_exited"]
+    },
+    "Node2D": {
+      "extends_hint": "Node",
+      "properties": ["position", "rotation", "rotation_degrees", "scale", "skew", "transform", "global_position", "global_rotation", "global_rotation_degrees", "global_scale", "global_transform", "global_skew", "z_index", "z_as_relative", "y_sort_enabled", "top_level", "light_mask", "visibility_layer", "modulate", "self_modulate", "show_behind_parent", "texture_filter", "texture_repeat", "clip_children", "draw_pass_1", "draw_pass_2", "draw_pass_3", "draw_pass_4", "_edit_lock_", "_edit_use_placeholder_", "_edit_group_"],
+      "methods": ["apply_scale", "global_translate", "inspect_native_geometry_type", "look_at", "move_to", "rotate", "scale_object_size", "to_global", "to_local", "translate", "update", "get_canvas_item", "get_transform", "get_canvas_transform", "get_viewport_transform", "get_global_transform", "get_viewport_rid", "is_set_from_editor", "set_ignore_mouse", "get_global_mouse_position", "get_local_mouse_position", "global_rotate", "global_scale", "hframes", "vframes", "frame", "frame_coords", "animation", "playing"],
+      "signals": ["frame_changed", "texture_changed"]
+    },
+    "Node3D": {
+      "extends_hint": "Node",
+      "properties": ["position", "rotation", "scale", "transform", "global_position", "global_rotation", "global_scale", "global_transform", "top_level", "visibility_parent", "visibility_layer", "lightmap_scale", "gi_mode", "lightprobe_bridge_probes", "shadow_ enabled", "shadow_bias", "no_culling", "extra_cull_margin", "occlusion_cull_data"],
+      "methods": ["_input", "_physics_process", "_process", "_ready", "apply_torgue", "clear_effector_parent", "get_child_count", "get_children", "get_face_normal", "get_global", "get_global_transform", "get_instance_shader_parameter", "get_instance_shader_parameter_count", "get_layers", "get_matrix_mode", "get_parent", "get_rotation_delta", "get_transform", "get_translation", "global_rotate", "global_scale", "global_translate", "look_at", "look_at_from_position", "move_to", "orthonormalize", "rotate", "rotate_object_local", "rotate_x", "rotate_y", "rotate_z", "scale_by", "scale_object_local", "set", "set_from", "set_rotation", "set_transform", "set_translation", "to_global", "to_local", "transform", "translate", "translate_object_local", "update_gizos", "visibility_changed", "walk", "walk_local"],
+      "signals": []
+    },
+    "CharacterBody2D": {
+      "extends_hint": "Node2D",
+      "properties": ["velocity", "motion_mode", "up_direction", "fall_gravity_factor", "floor_max_angle", "floor_snap_length", "safe_margin", "platform_on_leave", "platform_floor", "platform_wall", "move_and_slide_on", "collision_mode", "safe_margin_override", "floor_stop_on_slope", "floor_constant_speed", "platform_ceiling", "max_slides"],
+      "methods": ["_physics_process", "get_floor_normal", "get_floor_velocity", "get_last_slide_collision", "get_platform_velocity", "get_slide_collision", "get_slide_collision_count", "get_slide_normal", "is_on_ceiling", "is_on_floor", "is_on_wall", "move_and_slide", "move_and_slide_with_velocity", "set_up_direction", "sync_to_physics"],
+      "signals": ["landed", "wall_entered", "wall_exited"]
+    },
+    "CharacterBody3D": {
+      "extends_hint": "Node3D",
+      "properties": ["velocity", "motion_mode", "up_direction", "fall_gravity_factor", "floor_max_angle", "floor_snap_length", "safe_margin", "platform_on_leave", "platform_floor", "platform_wall", "move_and_slide_on", "collision_mode", "safe_margin_override", "floor_stop_on_slope", "floor_constant_speed", "platform_ceiling", "max_slides"],
+      "methods": ["_physics_process", "get_floor_normal", "get_floor_velocity", "get_last_slide_collision", "get_platform_velocity", "get_slide_collision", "get_slide_collision_count", "get_slide_normal", "is_on_ceiling", "is_on_floor", "is_on_wall", "move_and_slide", "move_and_slide_with_velocity", "set_up_direction", "sync_to_physics"],
+      "signals": ["landed", "wall_entered", "wall_exited"]
+    },
+    "StaticBody2D": {
+      "extends_hint": "Node2D",
+      "properties": ["constant_angular_velocity", "constant_force", "physics_material_override", "mass", "inertia", "center_of_mass_mode", "center_of_mass_override", "angular_damp_mode", "angular_damp", "gravity_scale", "custom_integrator", "continuous_cd", "max_contacts_reported", "contacts_reported_onscreen", "max_contacts", "contact_monitor", "use_extended_shapes", "one_way_collision", "one_way_collision_margin"],
+      "methods": ["_physics_process", "get_collision_layer", "get_collision_mask", "get_collision_pose", "get_constant_angular_velocity", "get_constant_force", "get_contact_count", "get_contact_local_position", "get_contact_local_shape", "get_contact_local_velocity_at_position", "get_contact_normal", "get_contact_object", "get_contact_object_rid", "get_contact_penetration_depth", "get_fixture_owners", "get_fixture_owners_count", "get_physics_rid", "get_safe_margin", "get_shape_owners", "is_ignoring_parent_scaling", "set_collision_layer_value", "set_collision_mask_value", "set_collision_layer", "set_collision_mask"],
+      "signals": ["body_entered", "body_exited", "sleeping_state_changed", "state_changed"]
+    },
+    "RigidBody2D": {
+      "extends_hint": "Node2D",
+      "properties": ["mass", "inertia", "center_of_mass_mode", "center_of_mass_override", "angular_damp_mode", "angular_damp", "linear_damp_mode", "linear_damp", "custom_integrator", "continuous_cd", "max_contacts_reported", "contacts_reported_onscreen", "max_contacts", "contact_monitor", "use_extended_shapes", "one_way_collision", "one_way_collision_margin", "linear_velocity", "angular_velocity", "spam", "gravity_scale", "max_contacts_reported", "can_sleep", "sleeping", "freeze", "freeze_mode", "mass_properties_override", "physics_material_override"],
+      "methods": ["_integrate_forces", "_physics_process", "apply_central_force", "apply_central_impulse", "apply_force", "apply_impulse", "apply_torque", "apply_torque_impulse", "get_applied_force", "get_applied_torque", "get_colliding_bodies", "get_contact_monitor", "get_collision_layer", "get_collision_mask", "get_collision_pose", "get_constant_angular_velocity", "get_constant_force", "get_contact_count", "get_contact_local_position", "get_contact_local_shape", "get_contact_local_velocity_at_position", "get_contact_normal", "get_contact_object", "get_contact_object_rid", "get_contact_penetration_depth", "get_fixture_owners", "get_fixture_owners_count", "get_global_anchor", "get_global_velocity_at_point", "get_gravity", "get_ignore_scale_inertia", "get_inertia", "get_linear_damp", "get_mass", "get_phyiscal_offset_rotation", "get_physics_rid", "get_safe_margin", "get_shape_owners", "get_transform", "get_velocity_at_point", "is_ignoring_parent_scaling", "is_using_custom_integrator", "set_collision_layer_value", "set_collision_mask_value", "set_collision_layer", "set_collision_mask", "set_gravity_scale", "set_ignore_scale_inertia", "set_physical_offset", "set_physical_offset_rotation", "set_rotation", "set_state", "sync_to_physics"],
+      "signals": ["body_entered", "body_exited", "sleeping_state_changed", "state_changed"]
+    },
+    "Area2D": {
+      "extends_hint": "Node2D",
+      "properties": ["monitoring", "monitorable", "collision_layer", "collision_mask", "collision_priority", "gravity_space_priority", "gravity", "gravity_point", "gravity_point_unit_distance", "gravity_direction", "linear_damp_space_override", "linear_damp", "angular_damp_space_override", "angular_damp", "audio_bus_name", "audio_bus_override", "max_contacts_reported", "reverb_bus_name", "reverb_bus_override", "reverb_amount", "reverb_uniformity", "priority", "use_parent_motion", "enable_audio_in_bodies"],
+      "methods": ["_body_entered", "_body_exited", "_input_event", "_physics_process", "add_collision_exception", "area_entered", "area_exited", "body_entered", "body_exited", "get_collision_layer", "get_collision_layer_value", "get_collision_mask", "get_collision_mask_value", "get_overlapping_areas", "get_overlapping_bodies", "get_overlapping_area_count", "get_overlapping_body_count", "has_overlapping_areas", "has_overlapping_bodies", "is_monitoring", "is_monitorable", "is_shape_overlapping_area", "is_shape_overlapping_body", "overlaps_area", "overlaps_body", "remove_collision_exception", "set_collision_layer_value", "set_collision_mask_value", "set_collision_layer", "set_collision_mask"],
+      "signals": ["area_entered", "area_exited", "body_entered", "body_exited", "area_shape_entered", "area_shape_exited", "body_shape_entered", "body_shape_exited"]
+    },
+    "Area3D": {
+      "extends_hint": "Node3D",
+      "properties": ["monitoring", "monitorable", "collision_layer", "collision_mask", "collision_priority", "gravity_space_priority", "gravity", "gravity_point", "gravity_point_unit_distance", "gravity_direction", "linear_damp_space_override", "linear_damp", "angular_damp_space_override", "angular_damp", "audio_bus_name", "audio_bus_override", "max_contacts_reported", "reverb_bus_name", "reverb_bus_override", "reverb_amount", "reverb_uniformity", "priority", "use_parent_motion"],
+      "methods": ["_body_entered", "_body_exited", "_input_event", "_physics_process", "add_collision_exception", "area_entered", "area_exited", "body_entered", "body_exited", "get_collision_layer", "get_collision_layer_value", "get_collision_mask", "get_collision_mask_value", "get_overlapping_areas", "get_overlapping_bodies", "overlaps_area", "overlaps_body", "remove_collision_exception", "set_collision_layer_value", "set_collision_mask_value"],
+      "signals": ["area_entered", "area_exited", "body_entered", "body_exited"]
+    },
+    "Sprite2D": {
+      "extends_hint": "Node2D",
+      "properties": ["texture", "normal_map", "texture_filter", "texture_repeat", "region_enabled", "region_rect", "region_filter_clip", "hframes", "vframes", "frame", "frame_coords", "animation", "autoplay", "speed_scale", "centered", "offset", "flip_h", "flip_v", "draw_pass_1", "draw_pass_2", "draw_pass_3", "draw_pass_4", "is_playing", "modulate", "self_modulate", "shading_mode"],
+      "methods": ["_get_item_rect", "_render", "_use_parent_material", "_draw", "get_rect", "get_texture_rect", "has_stretch", "set_in_current_texture_res_file", "is_pixel_sure", "is_pixel_opaque", "get_anchor", "get_h", "get_v", "has_h", "has_v", "set_anchor", "set_h", "set_v"],
+      "signals": ["frame_changed", "texture_changed"]
+    },
+    "AnimatedSprite2D": {
+      "extends_hint": "Node2D",
+      "properties": ["sprite_frames", "animation", "autoplay", "paused", "frame", "frame_progress", "speed_scale", "centered", "offset", "flip_h", "flip_v", "modulate", "self_modulate", "draw_pass_1", "draw_pass_2"],
+      "methods": ["_get_configuration_warnings", "_get_rect", "_process", "_ready", "_render", "get_frame", "get_frame_and_progress", "get_sprite_frames", "is_playing", "play", "stop"],
+      "signals": ["animation_finished", "frame_changed", "sprite_frames_changed"]
+    },
+    "CollisionShape2D": {
+      "extends_hint": "Node2D",
+      "properties": ["shape", "disabled", "one_way_collision", "one_way_collision_margin", "shape_refcount", "debug_color"],
+      "methods": ["_get_configuration_warnings", "get_shape", "get_shape_rid", "is_shape_disabled", "set_shape", "set_shape_disabled"],
+      "signals": []
+    },
+    "CollisionShape3D": {
+      "extends_hint": "Node3D",
+      "properties": ["shape", "disabled", "one_way_collision", "one_way_collision_margin", "shape_refcount", "debug_color"],
+      "methods": ["_get_configuration_warnings", "get_shape", "get_shape_rid", "is_shape_disabled", "set_shape", "set_shape_disabled"],
+      "signals": []
+    },
+    "CollisionPolygon2D": {
+      "extends_hint": "Node2D",
+      "properties": ["polygon", "build_mode", "collision_priority", "skid_delta", "friction", "bounce", "disabled", "one_way_collision", "one_way_collision_margin"],
+      "methods": ["get_collision_polygon_point_count", "get_polygon_points", "is_disabled", "set_disabled"],
+      "signals": []
+    },
+    "CollisionPolygon3D": {
+      "extends_hint": "Node3D",
+      "properties": ["polygon", "build_mode", "collision_priority", "friction", "bounce", "disabled", "one_way_collision", "one_way_collision_margin"],
+      "methods": ["get_collision_polygon_point_count", "get_polygon_points", "is_disabled", "set_disabled"],
+      "signals": []
+    },
+    "Label2D": {
+      "extends_hint": "Node2D",
+      "properties": ["text", "text_direction", "language", "opentype_feature_overrides", "structured_text_builder", "uppercase", "visible_ratio", "horizontal_alignment", "vertical_alignment", "autowrap_mode", "justify_mode", "size", "position", "fit_content", "line_spacing", "text_overrun_behavior", "overflow", "localize_numeral_system"],
+      "methods": ["_get_minimum_size", "_get_rect", "_render", "add_theme_color_override", "add_theme_constant_override", "add_theme_font_override", "add_theme_font_size_override", "add_theme_stylebox_override", "clear", "get_character_line_substring_index", "get_character_line_index", "get_total_glyph_count", "get_total_character_count", "is_resource_ready", " regenerate"],
+      "signals": []
+    },
+    "Label3D": {
+      "extends_hint": "Node3D",
+      "properties": ["pixel_size", "albedo_texture", "font", "custom_min_char_size", "text", "text_direction", "language", "structured_text_builder", "opentype_feature_overrides", "uppercase", "horizontal_alignment", "vertical_alignment", "autowrap_mode", "width", "lines", "line_spacing", "modulate", "outline_modulate", "size", "no_flags", "shadow_enabled", "shadow_proximity", "shadow_distance", "shadow_ smooth", "shadow_2d_enabled", "shadow_2d_size", "alpha_cut", "alpha_coverage", "alpha_antialiasing", "perspective", "flatten_flat_enabled"],
+      "methods": ["_get_configuration_warnings", "get_line_grow_axis", "get_line_count", "get_visible_line_count", "get_ol_letter_count", "get_ol_line_count", "get_ol_wrap_index", "get_ol_word_count", "get_structured_text"],
+      "signals": []
+    },
+    "RichTextLabel": {
+      "extends_hint": "Control",
+      "properties": ["bbcode_enabled", "text", "scroll_active", "scroll_following", "fit_content", "scroll_deadzone", "autowrap_mode", "global_position", "size", "content_bias", "selection_enabled", "selecting_enabled", "deselect_on_focus_loss_enabled", "selected_word_boundaries_enabled", "override_selected_bg_color", "custom_effects", "metadata"],
+      "methods": ["_get_gutter_types", "_get_line_count", "_get_line", "_get_total_glyph_count", "_get_visible_paragraph", "_get_visible_line", "_gui_input", "_input", "add_theme_color_override", "add_theme_constant_override", "add_theme_font_override", "add_theme_font_size_override", "add_theme_stylebox_override", "append_text", "clear", "get_parsed_text", "get_selection", "get_text", "get_total_glyph_count", "get_total_line_count", "get_visible_line_count", "install_effect", "is_fixed_size", "is_ready", "parse_expressions_for", "popup", "remove_theme_color_override", "remove_theme_constant_override", "remove_theme_font_override", "remove_theme_font_size_override", "remove_theme_stylebox_override", "set_anchor", "set_meta", "set_structured_text", "tween_value"],
+      "signals": ["meta_clicked", "meta_hover_started", "meta_hover_ended", "resized", "text_changed", "text_set"]
+    },
+    "Control": {
+      "extends_hint": "CanvasItem",
+      "properties": ["layout_mode", "layout_prologue", "layout", "anchors_preset", "anchor_left", "anchor_top", "anchor_right", "anchor_bottom", "grow_horizontal", "grow_vertical", "offset_left", "offset_top", "offset_right", "offset_bottom", "position", "size", "rotation", "scale", "pivot_offset", "custom_minimum_size", "layout_direction", "mirror", "theme_type_variation", "size_flags_horizontal", "size_flags_vertical", "size_flags_stretch_ratio", "anchors_and_offsets_preset", "grow_horizontal_begin", "grow_vertical_begin", "tooltip_text", "focus_neighbor_left", "focus_neighbor_top", "focus_neighbor_right", "focus_neighbor_bottom", "focus_next", "focus_previous", "focus_mode", "clips_contents", "force_ignore_scroll_to_global", "use_parent_material", "drag_resizing", "resizing_anchor_ignore", "rotation degrees", "scale", "pivot_offset", "modulate", "self_modulate", "show_behind_parent", "visible", "z_index", "y_sort_enabled", "top_level", "mouse_filter", "mouse_default_cursor_shape", "mouse_force_pass_scroll_events", "theme", "shortcut_context", "focus_steal_on_click", "expand_focused", "disabled", "keep_pressed_outside", "toggle_mode", "action_mode", "button_mask", "keep_text_direction", "language", "script"],
+      "methods": ["_draw", "_get_minimum_size", "_gui_input", "_input", "_input_event", "_mouse_enter", "_mouse_exit", "_pre_sort_children", "_process", "_process_internal", "_ready", "_sort_children", "_shortcut_input", "_toplevel_sort_children", "_unhandled_input", "_unhandled_key_input", "accept_event", "add_theme_color_override", "add_theme_constant_override", "add_theme_font_override", "add_theme_font_size_override", "add_theme_stylebox_override", "begin_bulk_theme_override", "bottom", "cancel", "center", "center_ratio", "click_pressed", "clips_contents", "constraint_position", "constraint_size", "create_curve_tween", "delete_meme", "disable_hollow_mode", "edit", "edit_custom", "end_bulk_theme_override", "ensure_transform_to_caller", "fit_to_parent", "force_drag", "get_anchor", "get_begin", "get_center_ratio", "get_class", "get_clicked", "get_combined_minimum_size", "get_constant", "get_cost", "get_cursor", "get_custom_minimum_size", "get_drag_data", "get_dragger", "get_end", "get_focus_neighbor", "get_focus_owners", "get_global_geometry", "get_global_position", "get_global_rect", "get_initial_position", "get_last_mouse_button_state", "get_minimum_size", "get_mouse_filter", "get_mouse_position", "get_node_or_null", "get_offset", "get_parent_area_size", "get_parent_background_image", "get_parent_content_scale", "get_parent_anchor", "get_parent_layout_mode", "get_parent_rect", "get_pivot_offset", "get_position", "get_rect", "get_renderer", "get_rotation", "get_scale", "get_screen_position", "get_selection_color", "get_size", "get_theme", "get_theme_color", "get_theme_constant", "get_theme_default_base_scale", "get_theme_default_font", "get_theme_default_font_size", "get_theme_font", "get_theme_font_size", "get_theme_icon", "get_theme_icon_override", "get_theme_stylebox", "get_theme_stylebox_override", "get_tooltip", "get_tree", "get_viewport", "get_vsize_flags", "grab_click_focus", "grab_focus", "has_control", "has_focus", "has_theme_color_override", "has_theme_constant_override", "has_theme_font_override", "has_theme_icon_override", "has_theme_stylebox_override", "is_anchor_pulled", "is_bulk_theme_overriding", "is_clicked", "is_drag_horizontal", "is_drag_hovered", "is_drag_successful", "is_resizing", "is_set_as_editor_bypass", "is_visible", "is_visible_in_tree", "is_layout_rtl", "make_rtl", "make_ttfcache", "minimum_size_changed", "mouse_filter_set_none", "move_to_foreground", "override_cursor", "print_canvas_graph", "propagate_notification", "propagate_call_deferred", "release_focus", "remove_theme_color_override", "remove_theme_constant_override", "remove_theme_font_override", "remove_theme_font_size_override", "remove_theme_stylebox_override", "reset_size", "set_anchor", "set_anchors_preset", "set_anchors_and_offsets_preset", "set_begin", "set_center_ratio", "set_clickaline", "set_constant", "set_drag_forward", "set_drag_preview", "set_end", "set_expand", "set_focus_neighbor", "set_focus_on_top", "set_global_position", "set_global_size", "set_ignore_mouse", "set_layout", "set_meta", "set_minimum_size", "set_mouse_filter", "set_offset", "set_pivot_offset", "set_position", "set_rotation", "set_scale", "set_shortcut_context", "set_size", "set_theme", "set_theme_type_variation", "set_tooltip_text", "set_vsize_flags", "show_modal", "size_flags_changed", "top_level_visibility_changed", "update_minimum_size", "update_undo_redo"],
+      "signals": ["focus_entered", "focus_exited", "gui_input", "mouse_entered", "mouse_exited", "mouse_move", "mouse_wheel_down", "mouse_wheel_up", "resized", "size_flags_changed", "focus_neighbor_left", "focus_neighbor_top", "focus_neighbor_right", "focus_neighbor_bottom", "focus_next", "focus_previous", "min_size_changed", "pressed", "toggled", "item_rect_changed", "modal_closed", "drag_started", "drag_ended"]
+    },
+    "Button": {
+      "extends_hint": "BaseButton",
+      "properties": ["button_mask", "action_mode", "text", "icon", "icon_alignment", "text_alignment", "expand_icon", "text_overrun_behavior", "vertical_icon_alignment", "horizontal_alignment", "text_dir", "language", "uppercase", "toggle_mode", "disabled", "flat", "draw_pass_1", "draw_pass_2"],
+      "methods": ["_get_minimum_size", "_get_tooltip", "_pressed", "_toggled", "get_drawn_button", "get_icon_alignment", "get_text_alignment", "get_vertical_icon_alignment", "set_button_mask", "set_icon_alignment", "set_text_alignment", "set_text_overrun_behavior", "set_vertical_icon_alignment", "toggle", "is_toggle_mode"],
+      "signals": ["button_down", "button_up", "pressed", "toggled", "item_rect_changed"]
+    },
+    "Timer": {
+      "extends_hint": "Node",
+      "properties": ["wait_time", "one_shot", "autostart", "paused", "process_callback", "timer_process_callback", "time_left"],
+      "methods": ["get_time_left", "get_wait_time", "is_paused", "is_stopped", "pause", "set_wait_time", "start", "stop"],
+      "signals": ["timeout"]
+    },
+    "AudioStreamPlayer": {
+      "extends_hint": "Node",
+      "properties": ["stream", "volume_db", "pitch_scale", "volume_linear", "autoplay", "bus", "max_polyphony", "process_mode", "mix_target", "playing"],
+      "methods": ["_get", "_get_property_list", "_get_reverb_presets", "_process", "_property_can_revert", "_property_get_revert", "_set", "play", "stop", "seek", "get_bus", "get_stream", "get_volume_db", "get_volume_linear", "is_playing", "set_bus", "set_stream", "set_volume_db", "set_volume_linear", "set_stream_paused"],
+      "signals": ["finished", "started"]
+    },
+    "AudioStreamPlayer2D": {
+      "extends_hint": "Node2D",
+      "properties": ["stream", "volume_db", "pitch_scale", "volume_linear", "autoplay", "bus", "max_polyphony", "process_mode", "mix_target", "playing", "max_distance", "attenuation_model", "panning_strength", "out_of_range_mode", "area_mask", "emulate_buses_from_area", "area_cd_priority", "area_cd_self_cd_enabled"],
+      "methods": ["_get", "_get_property_list", "_get_reverb_presets", "_process", "play", "stop", "seek", "get_attenuation_model", "get_autoplay", "get_bus", "get_emulate_buses_from_area", "get_max_distance", "get_max_polyphony", "get_mix_target", "get_out_of_range_mode", "get_panning_strength", "get_pitch_scale", "get_stream", "get_stream_paused", "get_volume_db", "get_volume_linear", "has_autoplay", "has_stream", "is_playing", "is_stream_paused", "is_valid", "set_attenuation_model", "set_autoplay", "set_bus", "set_emulate_buses_from_area", "set_max_distance", "set_max_polyphony", "set_mix_target", "set_out_of_range_mode", "set_panning_strength", "set_pitch_scale", "set_stream", "set_stream_paused", "set_volume_db", "set_volume_linear"],
+      "signals": ["finished", "started", "area_reached", "exited_area", "max_distance_reached"]
+    },
+    "AnimationPlayer": {
+      "extends_hint": "Node",
+      "properties": ["root_motion_track", "root_motion_position", "root_motion_rotation", "root_motion_scale", "assigned_animation", "current_animation", "current_animation_length", "current_animation_position", "autoplay", "playback_active", "playback_method", "playback_parameters", "playback_process_callback", "process_callback", "speed_scale", "assigned_lengths", "library", "mixing_rewrite", "optimization_enabled", "reset_on_save", "movie_quit_enabled"],
+      "methods": ["_get", "_get_property_list", "_process", "_set", "add_animation_library", "advance", "animation_get_next", "animation_list_loaded", "animation_set_next", "clear_caches", "clear_queue", "get_animation", "get_animation_library", "get_current_animation", "get_playing_speed_scale", "get_properties_changed_for", "get_track_count", "get_auto_removed_for", "has_animation", "has_animation_library", "is_valid_animation_library", "is_playing", "pause", "play", "play_backwards", "queue", "remove_animation_library", "rename_animation_library", "seek", "set_animation_library", "set_assigned_animation", "set_speed_scale", "stop", "super_ad", "get_playing"],
+      "signals": ["animation_changed", "animation_finished", "animation_list_changed", "animation_started", "caches_changed", "current_changed", "frames_changed"]
+    },
+    "Path2D": {
+      "extends_hint": "Node2D",
+      "properties": ["curve"],
+      "methods": ["get_curve", "set_curve"],
+      "signals": []
+    },
+    "PathFollow2D": {
+      "extends_hint": "Node2D",
+      "properties": ["progress", "progress_ratio", "h_offset", "v_offset", "rotates", "loop", "cubic_interpolation"],
+      "methods": ["get_progress", "get_progress_ratio", "set_progress", "set_progress_ratio", "set_h_offset", "set_v_offset", "set_rotates", "set_loop", "set_cubic_interpolation", "get_h_offset", "get_v_offset", "is_rotating", "has_loop", "get_cubic_interpolation"],
+      "signals": []
+    },
+    "NavigationAgent2D": {
+      "extends_hint": "Node",
+      "properties": ["path_desired_distance", "target_desired_distance", "radius", "navigation_layers", "path_max_length", "path_postprocessing", "target_position", "distance_target_to_agent", "avoidance_enabled", "navigation_finished", "velocity", "max_speed", "path_rid", "navigation_result", "avoidance_layers", "avoidance_mask", "map_override"],
+      "methods": ["_target_reached", "_navmesh_changed", "_path_changed", "distance_to_target", "get_current_segment_index", "get_final_position", "get_next_path_position", "get_path", "get_path_index", "get_previous_spatial_position", "is_navigation_finished", "navmesh_changed", "set_navigation_map", "set_target_position", "target_reached", "update_navigation"],
+      "signals": ["navigation_finished", "path_changed", "target_reached", "velocity_computed", "navigation_finished"]
+    },
+    "NavigationAgent3D": {
+      "extends_hint": "Node",
+      "properties": ["path_desired_distance", "target_desired_distance", "radius", "navigation_layers", "path_max_length", "path_postprocessing", "target_position", "distance_target_to_agent", "avoidance_enabled", "navigation_finished", "velocity", "max_speed", "path_rid", "navigation_result", "avoidance_layers", "avoidance_mask", "map_override"],
+      "methods": ["_target_reached", "_navmesh_changed", "_path_changed", "distance_to_target", "get_current_segment_index", "get_final_position", "get_next_path_position", "get_path", "get_path_index", "get_previous_spatial_position", "is_navigation_finished", "navmesh_changed", "set_navigation_map", "set_target_position", "target_reached", "update_navigation"],
+      "signals": ["navigation_finished", "path_changed", "target_reached", "velocity_computed", "navigation_finished"]
+    },
+    "TileMap": {
+      "extends_hint": "Node2D",
+      "properties": ["tile_set", "cell_quadrant_size", "cell_custom_transform", "cell_tile_origin", "cell_y_sort_enabled", "cell_centered_grids", "use_parent", "format", "tile_data_runtime", "collision_animatable", "collision_layers", "collision_mask", "collision_priority", "collision_friction", "collision_bounce", "physics_layer_pun", "collision_ignore_parent_roi", "collision_layer_cd_priority", "navigation_map", "use_navigation_roi", "navigation_layers", "navigation_visibility_layer", "rendering_occlusion_layers", "occlusion_layer_priority", "render_layers"],
+      "methods": ["_get", "_get_property_list", "_getitem_rect", "_physics_process", "_process", "_ready", "_set", "_use_baked_occlusion_lods", "calculate_activation_layout", "cancel_reindex", "clear", "coords_to_body", "coords_to_body_rid", "coords_to_le", "get_cell", "get_cell_source_id", "get_cell_alternate_id", "get_cell_metadata", "get_cells_occupied_anchor", "get_cells_occupied_item", "get_cells_occupied_layer", "get_layer", "get_layer_for_cell_item", "get_layer_name", "get_layer_nav_region", "get_layer_nav_region_rid", "get_layer_navigation", "get_layer_navigation_map", "get_layer_occlusion", "get_layer_occlusion_layer", "get_layer_physics", "get_layer_physics_layer", "get_layer_rendering", "get_layer_rendering_layer", "get_layers_count", "get_neighbor_cell", "get_next_layer", "get_physics_layer_collision_object", "get_physics_layer_collision_object_rid", "get_physics_layer_velocity_override", "get_prev_layer", "get_used_cells", "get_used_cells_by_id", "get_vpatterns_in_coords", "get_vpatterns_in_tile", "is_layer_compatibility_mode_enabled", "is_layer_navigation_enabled", "is_layer_occlusion_layers_enabled", "is_layer_physics_enabled", "is_layer_rendering_enabled", "map_to_map", "map_to_local", "map_to_world", "notify_siblings", "rebuild_pars", "reindex", "remove_layer", "set_layer", "set_layer_enabled", "set_layer_modulate", "set_layer_name", "set_layer_navigation", "set_layer_navigation_map", "set_layer_occlusion_layer_lod", "set_layer_occlusion_layers", "set_layer_physics_layer", "set_layer_physics_friction", "set_layer_physics_layer_priority", "set_layer_physics_collision", "set_layer_rendering", "set_layer_rendering_occlusion_layer_lod", "set_layer_collision", "set_layers_count", "set_neighbor_grid", "set_until_alignment", "world_to_map", "world_to_local", "world_to_map_coords", "world_to_world_coords"],
+      "signals": ["cell_coords_changed", "shape_ecks_entered", "shape_changed"]
+    }
+  },
+
+  "singletons": {
+    "AudioServer": {"methods": ["get_bus_count", "get_bus_name", "get_bus_volume_db", "is_bus_mute", "is_bus_bypassing_effects", "set_bus_count", "set_bus_name", "set_bus_volume_db", "set_bus_mute", "set_bus_bypass_effects"]},
+    "DisplayServer": {"methods": ["screen_get_size", "screen_get_position", "screen_get_scale", "screen_get_dpi", "window_get_size", "window_set_size", "window_get_position", "window_set_position", "window_set_title"]},
+    "Engine": {"methods": ["get_main_loop", "get_singleton", "get_version_info", "get_author_info", "get_copyright_info", "get_donor_info", "get_license_info", "get_license_text", "get_orphan_nodes", "get_physics_interpolation_fraction", "get_physics_jitter_fix", "get_print_handler_messages", "get_right_meta_underscore", "get_script_instances", "get_thread_cards", "get_thread_count", "get_thread_info", "get_thread_singleton_count", "get_total_physic_frames", "get_total_render_frames", "get_total_streams", "get_total_objects", "has_singleton", "is_editor_hint", "is_in_dit", "is_extension_implementation_missing", "register_singleton", "unregister_singleton"]},
+    "Input": {"methods": ["get_action_raw_strength", "get_action_strength", "get_axis", "get_action_list", "get_connected_joypads", "get_joy_axis", "get_joy_connection_changed", "get_joy_connection_list", "get_joy_guid", "get_joy_hat", "get_joy_name", "get_mouse_button_mask", "get_vector", "is_action_initial_pressed", "is_action_just_pressed", "is_action_just_released", "is_anything_pressed", "is_joy_known", "is_key_pressed", "parse_scancode", "start_joy_vibration", "stop_joy_vibration", "vibrate_handheld", "action_has_event", "add_joy_mapping", "get_persistent_joy_guid", "get_joy_vibration", "is_input_aware_event", "load_from_project_settings", "map_scancode_physical", "set_joy_axis", "set_joy_connection_changed", "set_joy_vibration", "set_smart_dispatch", "start_joy_vibration_process", "stop_joy_vibration_process", "vibrate_override", "warp_mouse"]},
+    "OS": {"methods": ["get_name", "get_cmdline_args", "get_executable_path", "get_environment", "has_environment", "is_debug_build", "is_stdout_verbose", "get_system_dir", "get_user_data_dir", "get_unique_id", "is_ok_cancel_os_test_done", "kernel_has_lsb", "native_video_is_playing_skip", "native_video_pause", "native_video_play", "request_attention", "set_native_icon", "set_thread_name"]},
+    "ResourceLoader": {"methods": ["exists", "get_dependencies", "get_recognized_extensions", "get_resource_type", "get_und熟人_cache_mode", "has_cached", "ignore_untyped", "load", "load_threaded_get_status", "load_threaded_request", "set_abort_on_missing_resources", "set_translation_remapped", "set_un熟_cache_mode", "thread_load_request"]},
+    "ResourceSaver": {"methods": ["exists", "get_recognized_extensions", "get_savable_extensions", "save", "save_path"]},
+    "Time": {"methods": ["get_date_dict_from_system", "get_date_string_from_datetime_dict", "get_datetime_dict_from_system", "get_datetime_string_from_system_dict", "get_time_dict_from_system", "get_unix_time_from_system_dict", "get_ticks_msec", "get_ticks_usec", "get_time_scale", "get_ticks_elapsed", "get_ticks_elapsed_usec", "get_system_time_msec", "is_in_12_hour_clock_format", "is_date_stored_utc", "set_time_scale"]},
+    "ProjectSettings": {"methods": ["get", "get_globalize_path", "get_imported_files_paths", "get_property_info", "has", "has_touchscreen_is_available", "property_can_revert", "property_get_revert", "save", "set", "set_order", "set_restart_if_changed", "get_application_config_dir", "get_compat_templates_paths", "get_current_exe_path", "get_current_scene_path", "get_exe_extension", "get_export_filter", "get_extra_resource_paths", "get_extra_script_dependencies", "get_import_restart_if_changed", "get_init_script_path", "get_input_devices", "get_level", "get_preset_info", "get_restart_on_remove", "get_script_extensions", "get_singleton_objects", "get_unique_node_path", "globalize_path", "is_builtin_feature", "load_resource_names", "property_exists", "save_custom", "set_as_basic", "set_as_unreliable", "set_builtin_feature", "setup_scrimmage"]},
+    "SceneTree": {"methods": ["get_first_node_in_group", "get_root", "instance", "notify_children", "qu_add", "qu_exec_id", "qu_notify", "qu_post", "qu_t", "quit", "set_refuse_new_window", "root_contains_node", "root", "root_window", "create_timer", "set_auto_accept_quit", "set_debug_connect_native_gui_input", "set_debug_tpa_connect_gui_input", "set_debug_tpa_inputs_nameless_gui_input", "set_pause", "set_stretch", "set_screen_root_override", "set_swallow_inputs_to_children", "root_items", "rootgui_input_event"]},
+    "RenderingServer": {"methods": ["create_rid", "get_rids", "free_rid", "force_sync", "force_draw", "create_timer", "get_frame", "get_frame_delta", "get_frame_time", "get_process_info", "is_in_sync_with_threads", "set_crashme_runner"]},
+    "PhysicsServer2DManager": {"methods": ["get_default_area_parameter", "get_default_body_parameter", "get_default_func_state", "get_default_slave_area_parameter", "get_default_slave_body_parameter", "set_default_area_parameter", "set_default_body_parameter", "set_default_slave_area_parameter", "set_default_slave_body_parameter"]},
+    "PhysicsServer3DManager": {"methods": ["get_default_area_parameter", "get_default_body_parameter", "get_default_func_state", "get_default_slave_area_parameter", "get_default_slave_body_parameter", "set_default_area_parameter", "set_default_body_parameter", "set_default_slave_area_parameter", "set_default_slave_body_parameter"]}
+  },
+
+  "global_functions": {
+    "abs": {"params": ["value"], "return": "Variant", "description": "Returns the absolute value of the parameter."},
+    "absf": {"params": ["value"], "return": "float", "description": "Returns the absolute value of a float."},
+    "absi": {"params": ["value"], "return": "int", "description": "Returns the absolute value of an integer."},
+    "acos": {"params": ["value"], "return": "float", "description": "Returns the arc cosine of the parameter."},
+    "asin": {"params": ["value"], "return": "float", "description": "Returns the arc sine of the parameter."},
+    "atan": {"params": ["value"], "return": "float", "description": "Returns the arc tangent of the parameter."},
+    "atan2": {"params": ["y", "x"], "return": "float", "description": "Returns the arc tangent of y/x."},
+    "bytes_to_var": {"params": ["buffer", "allow_objects"], "return": "Variant", "description": "Converts a byte array back to a variable."},
+    "bytes_to_var_with_objects": {"params": ["buffer"], "return": "Variant", "description": "Converts a byte array back to a variable including objects."},
+    "ceil": {"params": ["value"], "return": "float", "description": "Returns the ceiling of the parameter."},
+    "clamp": {"params": ["value", "min", "max"], "return": "Variant", "description": "Clamps the value between min and max."},
+    "clampf": {"params": ["value", "min", "max"], "return": "float", "description": "Clamps a float value."},
+    "clampsi": {"params": ["value", "min", "max"], "return": "int", "description": "Clamps an integer value."},
+    "cosh": {"params": ["value"], "return": "float", "description": "Returns the hyperbolic cosine of the parameter."},
+    "cos": {"params": ["value"], "return": "float", "description": "Returns the cosine of the parameter."},
+    "decimals": {"params": ["value"], "return": "float", "description": "Returns the number of decimal places in the input."},
+    "dtoa": {"params": ["value", "max_digits"], "return": "String", "description": "Converts a double to a string."},
+    "ease": {"params": ["value", "curve"], "return": "float", "description": "Easing function."},
+    "exp": {"params": ["value"], "return": "float", "description": "Returns e raised to the given power."},
+    "floor": {"params": ["value"], "return": "float", "description": "Returns the floor of the parameter."},
+    "fmod": {"params": ["x", "y"], "return": "float", "description": "Returns the floating-point remainder of x/y."},
+    "fposmod": {"params": ["x", "y"], "return": "float", "description": "Floating-point modulo."},
+    "func_ref": {"params": ["obj", "method"], "return": "Callable", "description": "Creates a function reference."},
+    "hash": {"params": ["value"], "return": "int", "description": "Returns a hash code."},
+    "inst_to_dict": {"params": ["instance"], "return": "Dictionary", "description": "Converts an instance to a dictionary."},
+    "inst_to_dict2": {"params": ["instance", "with_properties"], "return": "Dictionary", "description": "Converts an instance to a dictionary."},
+    "inverse_lerp": {"params": ["from", "to", "weight"], "return": "float", "description": "Inverse linear interpolation."},
+    "is_equal_approx": {"params": ["a", "b", "epsilon"], "return": "bool", "description": "Compares two floats by tolerance."},
+    "is_instance_valid": {"params": ["instance"], "return": "bool", "description": "Returns true if the instance is valid."},
+    "is_inf": {"params": ["value"], "return": "bool", "description": "Returns true if the value is infinity."},
+    "is_nan": {"params": ["value"], "return": "bool", "description": "Returns true if the value is NaN."},
+    "is_zero_approx": {"params": ["value", "epsilon"], "return": "bool", "description": "Returns true if the value is zero approximately."},
+    "lerp": {"params": ["from", "to", "weight"], "return": "float", "description": "Linearly interpolates between two values."},
+    "lerp_angle": {"params": ["from", "to", "weight"], "return": "float", "description": "Linearly interpolates between two angles."},
+    "lerpf": {"params": ["from", "to", "weight"], "return": "float", "description": "Linearly interpolates between two floats."},
+    "log": {"params": ["value"], "return": "float", "description": "Returns the natural logarithm."},
+    "max": {"params": ["a", "b"], "return": "Variant", "description": "Returns the maximum of two values."},
+    "min": {"params": ["a", "b"], "return": "Variant", "description": "Returns the minimum of two values."},
+    "move_toward": {"params": ["from", "to", "delta"], "return": "Variant", "description": "Moves the value towards the target."},
+    "nearest_po2": {"params": ["value"], "return": "int", "description": "Returns the nearest power of 2."},
+    "lerp_vector3": {"params": ["from", "to", "weight"], "return": "Vector3", "description": "Linearly interpolates between two Vector3."},
+    "ord": {"params": ["character"], "return": "int", "description": "Returns the Unicode code point of a character."},
+    "parse_json": {"params": ["json_string"], "return": "Variant", "description": "Parses a JSON string."},
+    "ping": {"params": [], "return": "int", "description": "Returns the latency in milliseconds."},
+    "posmod": {"params": ["x", "y"], "return": "Variant", "description": "Integer modulo."},
+    "pow": {"params": ["base", "exp"], "return": "float", "description": "Returns the power of the base."},
+    "print": {"params": ["value"], "return": "void", "description": "Prints values to the console."},
+    "print_rich": {"params": ["value"], "return": "void", "description": "Prints rich text to the console."},
+    "printerr": {"params": ["value"], "return": "void", "description": "Prints an error to the console."},
+    "printraw": {"params": ["value"], "return": "void", "description": "Prints raw output to the console."},
+    "prints": {"params": ["value"], "return": "void", "description": "Prints space-separated values."},
+    "printt": {"params": ["value"], "return": "void", "description": "Prints with tabs."},
+    "push_error": {"params": ["message"], "return": "void", "description": "Pushes an error message."},
+    "push_warning": {"params": ["message"], "return": "void", "description": "Pushes a warning message."},
+    "range": {"params": ["to"], "return": "Array", "description": "Returns an array of integers from 0 to end."},
+    "rangef": {"params": ["from", "to", "step"], "return": "Array", "description": "Returns an array of floats."},
+    "rangei": {"params": ["from", "to", "step"], "return": "Array", "description": "Returns an array of integers."},
+    "rand_from_seed": {"params": ["seed"], "return": "Array", "description": "Returns a random number from a seed."},
+    "rand_range": {"params": ["from", "to"], "return": "float", "description": "Returns a random float between from and to."},
+    "randf": {"params": [], "return": "float", "description": "Returns a random float between 0.0 and 1.0."},
+    "randi": {"params": [], "return": "int", "description": "Returns a random unsigned 32-bit integer."},
+    "randi_range": {"params": ["from", "to"], "return": "int", "description": "Returns a random integer between from and to."},
+    "randomize": {"params": [], "return": "void", "description": "Randomizes the seed."},
+    "remove_hollow": {"params": [], "return": "void", "description": "Not implemented."},
+    "round": {"params": ["value"], "return": "float", "description": "Rounds to the nearest integer."},
+    "seed": {"params": ["seed"], "return": "void", "description": "Sets the random seed."},
+    "sign": {"params": ["value"], "return": "Variant", "description": "Returns the sign of the value (-1, 0, 1)."},
+    "signf": {"params": ["value"], "return": "float", "description": "Returns the sign of a float."},
+    "signi": {"params": ["value"], "return": "int", "description": "Returns the sign of an integer."},
+    "sinh": {"params": ["value"], "return": "float", "description": "Returns the hyperbolic sine."},
+    "sin": {"params": ["value"], "return": "float", "description": "Returns the sine."},
+    "smoothstep": {"params": ["from", "to", "weight"], "return": "float", "description": "Smooth interpolation."},
+    "sqrt": {"params": ["value"], "return": "float", "description": "Returns the square root."},
+    "step_decimals": {"params": ["value"], "return": "float", "description": "Returns the decimal part of a float."},
+    "stepify": {"params": ["value", "step"], "return": "float", "description": "Snaps the value to the given step."},
+    "str": {"params": ["value"], "return": "String", "description": "Converts to string."},
+    "str2var": {"params": ["string"], "return": "Variant", "description": "Converts a string to a variable."},
+    "to_json": {"params": ["var"], "return": "String", "description": "Converts a variable to JSON."},
+    "type_exists": {"params": ["type"], "return": "bool", "description": "Checks if a type exists."},
+    "typeof": {"params": ["value"], "return": "int", "description": "Returns the type of a variable."},
+    "valt": {"params": ["string", "default_value"], "return": "Variant", "description": "Converts a string to a value."},
+    "var_to_bytes": {"params": ["var", "full_objects"], "return": "PackedByteArray", "description": "Converts a variable to bytes."},
+    "var_to_bytes_with_objects": {"params": ["var"], "return": "PackedByteArray", "description": "Converts a variable to bytes with objects."},
+    "weakref": {"params": ["obj"], "return": "WeakRef", "description": "Creates a weak reference."},
+    "wrapf": {"params": ["value", "min", "max"], "return": "float", "description": "Wraps a float value."},
+    "wrapi": {"params": ["value", "min", "max"], "return": "int", "description": "Wraps an integer value."},
+    "wrtov": {"params": ["string", "default_value"], "return": "Variant", "description": "Converts a string to a Variant."},
+    "TypedArray_bind": {"params": [], "return": "void", "description": "Binds a TypedArray."},
+    "print_debug": {"params": ["value"], "return": "void", "description": "Prints debug information."},
+    "print_verbose": {"params": ["value"], "return": "void", "description": "Prints verbose output."}
+  },
+
+  "decorators": {
+    "valid": ["@export", "@export_range", "@export_node_path", "@export_color", "@export_file", "@export_multiline", "@export_hint", "@export_subgroup", "@export_category", "@export_tool_path", "@export_struct", "@onready", "@tool", "@icon", "@static_unload", "@warning_ignore", "@experimental", "@deprecated"],
+    "deprecated": ["@onready"],
+    "deprecated_message": "Consider using immediate property initialization instead of @onready"
+  },
+
+  "virtual_methods": [
+    "_init", "_ready", "_enter_tree", "_exit_tree", "_process", "_physics_process", 
+    "_input", "_unhandled_input", "_shortcut_input", "_unhandled_key_input",
+    "_draw", "_physics_draw", "_get_configuration_warnings", "_get_property_list",
+    "_validate_property", "_set", "_get", "_to_string", "_notification",
+    "_get_minimum_size", "_make_custom_tooltip", "_gui_input", "_has_resource",
+    "_sub_correct", "_configure_gui", "_update_overscan", "_get_drag_data",
+    "_can_drop_data", "_drop_data", "_drag", "_get_drag_at", "_custom_action",
+    "_setup_local_to_scene", "_reparent", "_enter_tree", "_exit_tree"
+  ],
+
+  "keywords": [
+    "and", "class", "class_name", "const", "enum", "extends", "func", "is",
+    "in", "not", "or", "setget", "static", "super", "trait", "var", "void",
+    "break", "continue", "if", "elif", "else", "for", "match", "while",
+    "as", "await", "breakpoint", "pass", "return", "signal", "class",
+    "self", "true", "false", "null"
+  ],
+
+  "removed_in_godot4": {
+    "yield": "Use 'await' instead. Yield was removed in Godot 4.0.",
+    "test_move": "Use 'move_and_collide()' instead. test_move() was removed in Godot 4.0.",
+    "OS.get_screen_size": "Use DisplayServer.screen_get_size() instead.",
+    "OS.get_screen_position": "Use DisplayServer.screen_get_position() instead.",
+    "OS.get_screen_dpi": "Use DisplayServer.screen_get_dpi() instead.",
+    "rand_seed": "Returns an array [value, seed]. Use RandomNumberGenerator instead.",
+    "Array.empty": "Use Array.is_empty() instead.",
+    "Array.invert": "Use Array.reverse() instead.",
+    "Array.remove": "Use Array.remove_at() instead.",
+    "String.substr": "Use String.substr() with adjusted behavior (returns characters from the right).",
+    "rotation_degrees": "Use rotation property with degrees editor (no longer separate).",
+    "Engine.editor_hint": "Use Engine.is_editor_hint() method instead.",
+    "Tween": "Use Tweeners (TweenPropertyTween, TweenIntervalTween, etc.) instead.",
+    "scene_parsed": "Signal removed. Use SceneTree. SceneTree.tree_entered instead.",
+    "scene_ready": "Signal removed. Use Node.ready instead."
+  }
+}

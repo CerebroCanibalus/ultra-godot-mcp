@@ -172,6 +172,185 @@ Validación automática que previene errores **antes** de escribir archivos.
 
 ---
 
+## 3.1. GDScript Validator (v2.0)
+
+Validación inteligente de scripts GDScript usando una arquitectura de **3 capas**.
+
+### Arquitectura de 3 Capas
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    VALIDACIÓN EN 3 CAPAS                    │
+├─────────────────────────────────────────────────────────────┤
+│  CAPA 1: Godot Real (Sintaxis + Errores Reales)            │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │ godot_check_script_syntax()                           │  │
+│  │ → Parser completo de Godot                           │  │
+│  │ → Errores reales de compilación                      │  │
+│  │ → Habilitado con project_path                        │  │
+│  └───────────────────────────────────────────────────────┘  │
+├─────────────────────────────────────────────────────────────┤
+│  CAPA 2: API de Godot 4.6 (Métodos/Propiedades)          │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │ godot_api_4.6.json                                   │  │
+│  │ → Detectar métodos inexistentes en tipos específicos  │  │
+│  │ → Verificar decoradores deprecated                    │  │
+│  │ → Detectar métodos/propiedades removidos en Godot 4   │  │
+│  └───────────────────────────────────────────────────────┘  │
+├─────────────────────────────────────────────────────────────┤
+│  CAPA 3: Análisis de Patrones (Patterns Comunes)           │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │ gdscript_validator.py                                 │  │
+│  │ → @export sin tipo hint (info)                       │  │
+│  │ → Decoradores deprecated (@onready)                   │  │
+│  │ → Funciones removidas (yield, test_move)              │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Archivos del módulo
+
+```
+src/godot_mcp/core/
+├── api/
+│   ├── __init__.py              # GodotAPI + NodeAPI classes
+│   ├── godot_api_4.6.json        # API de Godot 4.6.1 (GDScript)
+│   └── godot_nodes_4.6.json      # Tipos de nodos TSCN
+└── gdscript_validator.py        # Validador inteligente GDScript
+```
+
+### Lo que SÍ detecta
+
+| Tipo | Ejemplo | Severidad |
+|------|---------|-----------|
+| Decoradores deprecated | `@onready` | WARNING |
+| Métodos removidos | `test_move()`, `yield()` | ERROR |
+| Funciones removidas | `OS.get_screen_size()` | ERROR |
+| Métodos inexistentes en tipo | `CharacterBody2D.overlaps_body()` | WARNING |
+
+### Lo que NO detecta (y por qué)
+
+| Tipo | Razón |
+|------|-------|
+| Variables no declaradas | **Imposible** - GDScript es dinámico |
+| Llamadas a funciones en objetos desconocidos | Podría ser cualquier tipo |
+
+### Decisión de diseño: Variables no declaradas
+
+El validador **NO intenta** detectar "variables no declaradas" porque:
+
+1. **GDScript es dinámico**: Una variable puede venir de:
+   - `@export` de otra clase
+   - `get_node()` o `instantiate()`
+   - Señales o callbacks
+   - Herencia o mixins
+
+2. **Análisis estático es imposible**: Sin ejecutar el código o parsear toda la escena, es imposible saber qué variables existirán en tiempo de ejecución.
+
+3. **Falsos positivos son dañinos**: Intentar adivinar causa más ruido que utilidad.
+
+Para detectar errores reales de sintaxis, usa `validate_gdscript(script_path, project_path=...)` que invoca a Godot.
+
+### API de Godot 4.6
+
+El archivo `godot_api_4.6.json` contiene:
+
+- **Tipos de nodos**: `CharacterBody2D`, `Area2D`, `Sprite2D`, etc.
+- **Tipos integrados**: `Vector2`, `String`, `Array`, etc.
+- **Singletons**: `Input`, `Engine`, `Time`, etc.
+- **Funciones globales**: `abs()`, `clamp()`, `print()`, etc.
+- **Decoradores**: `@export`, `@onready`, `@tool`, etc.
+- **Métodos virtuales**: `_ready()`, `_process()`, etc.
+- **Removidos en Godot 4**: `yield`, `test_move`, `OS.get_screen_size()`
+
+### Actualización de la API
+
+Para actualizar a una nueva versión de Godot:
+
+1. Descargar la documentación de la nueva versión
+2. Regenerar `godot_api_4.6.json` con el nuevo contenido
+3. Actualizar el número de versión en el JSON
+
+---
+
+## 3.2. NodeAPI (TSCN Validator v2.0)
+
+Validación inteligente de tipos de nodos en archivos `.tscn` usando datos externos.
+
+### Arquitectura
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    TSCN VALIDATOR                            │
+├─────────────────────────────────────────────────────────────┤
+│  TSCNValidator                                               │
+│  ├── Usa NodeAPI para validación inteligente                │
+│  ├── VALID_NODE_TYPES hardcodeado ELIMINADO                 │
+│  └── Reglas de validación basadas en NodeAPI               │
+├─────────────────────────────────────────────────────────────┤
+│  NodeAPI (Singleton)                                        │
+│  ├── Carga godot_nodes_4.6.json                            │
+│  ├── Fallback con lista mínima si JSON no existe           │
+│  └── Búsqueda O(1) con set de tipos válidos                │
+├─────────────────────────────────────────────────────────────┤
+│  godot_nodes_4.6.json                                       │
+│  ├── 200+ tipos de nodos válidos por categoría             │
+│  ├── Tipos REMOVIDOS en Godot 4 (KinematicBody → Character)│
+│  ├── Tipos DEPRECADOS (AnimatorPlayer)                     │
+│  └── Recursos que NO son nodos (RectangleShape2D, etc.)     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Nuevas reglas de validación TSCN
+
+| Regla | Nivel | Descripción |
+|-------|-------|-------------|
+| `valid_node_types` | WARNING | Tipo de nodo no es conocido (puede ser class_name) |
+| `removed_node_types` | ERROR | Tipo fue **removido** en Godot 4 |
+| `resource_not_node` | ERROR | Recurso usado incorrectamente como tipo de nodo |
+
+### Detección de tipos removidos
+
+| Godot 3 (Removido) | Godot 4 (Correcto) |
+|--------------------|--------------------|
+| `KinematicBody2D` | `CharacterBody2D` |
+| `KinematicBody3D` | `CharacterBody3D` |
+
+### Detección de recursos vs nodos
+
+| Recurso (NO es nodo) | Uso correcto |
+|---------------------|-------------|
+| `RectangleShape2D` | Hijo de `CollisionShape2D` |
+| `NavigationMesh` | Recurso de `NavigationRegion3D` |
+| `FogMaterial` | Recurso de `FogVolume` |
+
+### API de NodeAPI
+
+```python
+from godot_mcp.core.api import NodeAPI, get_node_api
+
+api = get_node_api()
+
+# Validar tipo de nodo
+api.is_valid_node_type("CharacterBody2D")  # True
+
+# Detectar tipos removidos
+api.is_removed_node("KinematicBody2D")  # (True, "Use 'CharacterBody2D' instead")
+
+# Detectar recursos incorrectos
+api.is_resource_not_node("NavigationMesh")  # True
+
+# Validación completa
+api.validate_type("Sprite2D")
+# {'is_valid': True, 'issues': [], 'suggestions': []}
+
+api.validate_type("KinematicBody2D")
+# {'is_valid': False, 'issues': ["'KinematicBody2D' was removed..."], 
+#  'suggestions': ["Replace with: CharacterBody2D"]}
+```
+
+---
+
 ## 4. Property Tools (Inspector Unificado)
 
 `set_node_properties` es la herramienta central para manipular propiedades.
@@ -233,7 +412,7 @@ Cubre **150+ tipos de nodo** incluyendo física, rendering, UI, audio, animació
 
 ---
 
-## 5. Estructura de Archivos
+## 6. Estructura de Archivos
 
 ```
 godot-mcp-python/
@@ -241,8 +420,13 @@ godot-mcp-python/
 │   ├── server.py                    # Entry point del servidor
 │   ├── session_manager.py           # SessionManager
 │   ├── core/
+│   │   ├── api/
+│   │   │   ├── __init__.py         # GodotAPI + NodeAPI classes
+│   │   │   ├── godot_api_4.6.json  # API de Godot 4.6.1 (GDScript)
+│   │   │   └── godot_nodes_4.6.json # Tipos de nodos 4.6.1 (TSCN)
 │   │   ├── tscn_parser.py           # Parser y serializador TSCN
-│   │   └── tscn_validator.py        # Validador Poka-Yoke
+│   │   ├── tscn_validator.py        # Validador Poka-Yoke (v2.0)
+│   │   └── gdscript_validator.py    # Validador inteligente GDScript (v2.0)
 │   └── tools/
 │       ├── session_tools.py         # start_session, end_session
 │       ├── scene_tools.py           # create_scene, get_scene_tree
@@ -251,12 +435,14 @@ godot-mcp-python/
 │       ├── resource_tools.py        # create_resource, add_ext_resource
 │       ├── signal_and_script_tools.py # connect_signal, set_script
 │       ├── project_tools.py         # get_project_info, find_scripts
+│       ├── debug_tools.py           # check_script_syntax, run_debug_scene
 │       └── validation_tools.py      # validate_tscn, validate_gdscript
 ├── tests/
 │   ├── test_parser.py
 │   ├── test_property_tools.py
 │   ├── test_signal_and_script_tools.py
-│   ├── test_tscn_validator.py
+│   ├── test_tscn_validator.py       # Tests del TSCN validator + NodeAPI
+│   ├── test_new_features.py         # Tests del GDScript validator
 │   └── ...
 └── docs/
     ├── TOOLS.md                     # Referencia de herramientas
@@ -310,8 +496,8 @@ godot-mcp-python/
 
 ---
 
-*Documento de arquitectura v2.1*
-*Fecha: 2026-04-14*
+*Documento de arquitectura v2.2*
+*Fecha: 2026-04-17*
 
 ### Changelog v2.1
 - `SceneNode` ahora tiene campo `instance` para instanciación nativa de Godot
@@ -319,3 +505,12 @@ godot-mcp-python/
 - `Scene.deduplicate_ext_resources()` elimina duplicados y remapea referencias
 - Parser lee y serializa `instance=` del header de nodos
 - Parser preserva canal alpha en `Color(r, g, b, a)`
+
+### Changelog v2.2 (TSCN Validator + NodeAPI)
+- `TSCNValidator` ahora usa `NodeAPI` para validación inteligente de tipos de nodos
+- `VALID_NODE_TYPES` hardcodeado eliminado (~260 líneas)
+- Detección de tipos **removidos** en Godot 4 (KinematicBody2D/3D → CharacterBody2D/3D)
+- Detección de **recursos usados incorrectamente** como tipos de nodos (NavigationMesh, RectangleShape2D, etc.)
+- Tipos personalizados (`class_name`) permitidos sin errores
+- `godot_nodes_4.6.json` contiene lista completa de tipos válidos
+- Fallback con lista mínima si JSON no está disponible

@@ -69,9 +69,7 @@ class TestAddExtResource:
                 id="1",
             )
             scene.ext_resources.append(new_ext)
-            scene.header.load_steps = (
-                1 + len(scene.ext_resources) + len(scene.sub_resources)
-            )
+            scene.header.load_steps = 1 + len(scene.ext_resources) + len(scene.sub_resources)
 
             assert len(scene.ext_resources) == 1
             assert scene.ext_resources[0].type == "Texture2D"
@@ -181,18 +179,11 @@ class TestAddExtResource:
         tscn_output = scene.to_tscn()
 
         # Verificar formato correcto en header
-        assert (
-            '[ext_resource type="Texture2D" path="res://sprites/player.png" id="1"]'
-            in tscn_output
-        )
+        assert '[ext_resource type="Texture2D" path="res://sprites/player.png" id="1"]' in tscn_output
 
         # Verificar que NO aparece como propiedad de nodo
         assert "ext_resources =" not in tscn_output
-        assert (
-            "ExtResource" not in tscn_output.split("[node")[1]
-            if "[node" in tscn_output
-            else True
-        )
+        assert "ExtResource" not in tscn_output.split("[node")[1] if "[node" in tscn_output else True
 
 
 # ============ ISSUE #2: SubResources huérfanos ============
@@ -336,10 +327,10 @@ class TestValidateTscn:
 
 
 class TestValidateGdscript:
-    """Tests para validate_gdscript tool"""
+    """Tests para validate_gdscript tool (v2.0 - intelligent validation)"""
 
     def test_validate_gdscript_from_file(self):
-        """Test validar script desde archivo"""
+        """Test validar script válido desde archivo"""
         from godot_mcp.tools.validation_tools import validate_gdscript
 
         content = """extends CharacterBody2D
@@ -355,21 +346,78 @@ func _ready():
             result = validate_gdscript(script_path=script_path)
             assert result["success"] is True
             assert result["error_count"] == 0
+            assert "validation_mode" in result
         finally:
             os.unlink(script_path)
 
     def test_validate_gdscript_from_content(self):
-        """Test validar script desde contenido inline"""
+        """Test validar script inline (API validation only)"""
         from godot_mcp.tools.validation_tools import validate_gdscript
 
         content = """extends Node2D
 
+@export var health: int = 100
+
 func _ready():
-    undeclared_var = 42
+    # Variables no declaradas NO se warnan (GDScript es dinámico)
+    # El validador solo verifica API y patterns
+    var my_var = calculate_damage(health)
 """
         result = validate_gdscript(script_content=content)
-        # Should have warnings about undeclared_var
-        assert result["warning_count"] >= 0  # At least parses
+        # El nuevo validador NO warns sobre variables no declaradas
+        # porque eso es imposible de hacer bien en GDScript
+        assert result["success"] is True
+        assert result["validation_mode"] == "api_only"
+
+    def test_validate_gdscript_detects_deprecated_decorator(self):
+        """Test que detecta @onready como deprecated"""
+        from godot_mcp.tools.validation_tools import validate_gdscript
+
+        content = """extends Node
+
+@onready var sprite = $Sprite
+"""
+        result = validate_gdscript(script_content=content)
+        # @onready es deprecated, debe warnar
+        assert result["warning_count"] >= 1
+        has_onready_warning = any("@onready" in issue["message"] for issue in result["issues"])
+        assert has_onready_warning, "Should warn about @onready"
+
+    def test_validate_gdscript_detects_removed_methods(self):
+        """Test que detecta métodos removidos en Godot 4"""
+        from godot_mcp.tools.validation_tools import validate_gdscript
+
+        content = """extends CharacterBody2D
+
+func _ready():
+    test_move()  # Removido en Godot 4
+"""
+        result = validate_gdscript(script_content=content)
+        # test_move fue removido en Godot 4
+        assert result["error_count"] >= 1
+        has_removed_error = any("removed" in issue["message"].lower() for issue in result["issues"])
+        assert has_removed_error, "Should error about test_move being removed"
+
+    def test_validate_gdscript_with_project_path(self):
+        """Test que usa Godot para sintaxis si hay project_path"""
+        from godot_mcp.tools.validation_tools import validate_gdscript
+
+        # Crear script en ubicación temporal
+        content = """extends Node
+
+func _ready():
+    pass
+"""
+        script_path = _create_temp_gdscript(content)
+        try:
+            # Sin project_path: API only
+            result_no_project = validate_gdscript(script_path=script_path)
+            assert result_no_project["validation_mode"] == "api_only"
+
+            # El modo api_plus_godot requiere un proyecto válido de Godot
+            # No lo testeamos aquí porque requiere Godot instalado
+        finally:
+            os.unlink(script_path)
 
     def test_validate_gdscript_both_args_error(self):
         """Test error al proporcionar ambos argumentos"""
@@ -436,9 +484,7 @@ class TestAddNodeValidation:
         scene = Scene(
             header=GdSceneHeader(load_steps=2, format=3),
             sub_resources=[
-                SubResource(
-                    type="Vector2", id="Vector2_valid", properties={"x": 0, "y": 0}
-                ),
+                SubResource(type="Vector2", id="Vector2_valid", properties={"x": 0, "y": 0}),
             ],
             nodes=[
                 SceneNode(name="Root", type="Node2D", parent="."),

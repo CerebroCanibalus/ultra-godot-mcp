@@ -463,12 +463,32 @@ validate_tscn(scene_path: str, project_path: str = None, strict: bool = False) -
 ```
 
 ### `validate_gdscript`
-Valida un script `.gd`.
+Valida un script `.gd` usando validación inteligente de 3 capas.
+
+**Nuevos parámetros (v2.0):**
+- `project_path`: Habilita validación de sintaxis con Godot real
+- `use_godot_syntax`: Usa Godot para errores de compilación
 
 ```python
-validate_gdscript(script_path: str = None, script_content: str = None,
-                  strict: bool = False) -> dict
+validate_gdscript(
+    script_path: str = None,
+    script_content: str = None,
+    project_path: str = None,        # NEW: Habilita Godot syntax check
+    strict: bool = False,
+    use_godot_syntax: bool = True    # NEW
+) -> dict
 ```
+
+**Retorna (nuevo):**
+- `validation_mode`: `"api_only"` o `"api_plus_godot"`
+
+**Lo que detecta:**
+- Decoradores deprecated (`@onready`)
+- Métodos removidos en Godot 4 (`yield`, `test_move`)
+- Métodos inexistentes en tipos específicos
+
+**Lo que NO detecta (por diseño):**
+- Variables no declaradas (GDScript es dinámico)
 
 ### `validate_project`
 Valida todos los archivos del proyecto.

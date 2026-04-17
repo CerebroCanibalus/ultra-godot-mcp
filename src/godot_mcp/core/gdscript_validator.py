@@ -1,22 +1,38 @@
 """
-GDScript Validator - Análisis estático básico para scripts GDScript
+GDScript Validator - Validación inteligente de scripts GDScript.
 
-Detecta errores comunes:
-- Variables no declaradas
-- Funciones inexistentes
-- Type mismatches básicos
+Este validador usa una arquitectura de 3 capas para proporcionar
+validación precisa con mínimo falsos positivos:
+
+CAPA 1: Godot Real (Sintaxis)
+    → Delega a godot_check_script_syntax() para errores reales
+
+CAPA 2: API de Godot (Métodos/Propiedades)
+    → Verifica métodos vs. la API conocida de Godot 4.6
+
+CAPA 3: Análisis de Patrones (Patterns Comunes)
+    → Detecta @export sin tipo, código muerto, decorators deprecated
+
+Esta arquitectura evita el problema fundamental de detectar
+"variables no declaradas" (imposible con análisis estático en GDScript).
+
+Autor: Devil's Kitchen
+Versión: 2.0
+Dependencias: godot_mcp.core.api.GodotAPI
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Optional
+
+from godot_mcp.core.api import GodotAPI
 
 
 @dataclass
 class GDIssue:
-    """Un problema encontrado en el script"""
+    """Un problema encontrado en el script."""
 
     line: int
     severity: str  # "error", "warning", "info"
@@ -26,169 +42,86 @@ class GDIssue:
 
 @dataclass
 class GDValidationResult:
-    """Resultado de la validación"""
+    """Resultado de la validación."""
 
     is_valid: bool = True
     issues: list[GDIssue] = field(default_factory=list)
 
-    def add_issue(
-        self, line: int, severity: str, message: str, suggestion: str | None = None
-    ):
+    def add_issue(self, line: int, severity: str, message: str, suggestion: str | None = None):
         self.issues.append(GDIssue(line, severity, message, suggestion))
         if severity == "error":
             self.is_valid = False
 
 
+@dataclass
+class ParsedCall:
+    """Una llamada a método o función parseada."""
+
+    line: int
+    object_name: str | None  # None = función global/standalone
+    method_name: str
+    full_match: str
+
+
 class GDScriptValidator:
     """
-    Validador básico de GDScript
+    Validador inteligente de GDScript basado en la API de Godot 4.6.
 
-    NO es un parser completo, solo detecta patrones comunes de error.
+    NO intenta detectar "variables no declaradas" - esto es imposible
+    en GDScript sin un parser completo y análisis de flujo.
+
+    En su lugar, verifica:
+    - Métodos llamados en objetos conocidos (CharacterBody2D, etc.)
+    - Decoradores deprecated (@onready)
+    - Patterns de código problemáticos
+    - Métodos/propiedades eliminados en Godot 4
+
+    Attributes:
+        api: Instancia de GodotAPI para consultas de API
     """
 
-    # Funciones built-in de Godot 4.x
-    BUILTIN_FUNCTIONS = {
-        # Matemáticas
-        "abs",
-        "clamp",
-        "lerp",
-        "lerpf",
-        "max",
-        "min",
-        "pow",
-        "round",
-        "sign",
-        "sqrt",
-        "ceil",
-        "floor",
-        "fposmod",
-        "posmod",
-        "wrapf",
-        "wrapi",
-        # Vectores
-        "Vector2",
-        "Vector3",
-        "Vector2i",
-        "Vector3i",
-        "Transform2D",
-        "Transform3D",
-        # Input/Time
-        "Input",
-        "Time",
-        "OS",
-        "Engine",
-        # Nodo
-        "get_node",
-        "get_parent",
-        "get_children",
-        "queue_free",
-        "add_child",
-        "remove_child",
-        "move_child",
-        "has_node",
-        "find_child",
-        "find_children",
-        # Señales
-        "connect",
-        "disconnect",
-        "emit_signal",
-        "has_signal",
-        # Recursos
-        "preload",
-        "load",
-        "ResourceLoader",
-        "ResourceSaver",
-        # Física
-        "move_and_slide",
-        "move_and_collide",
-        "test_move",
-        "is_on_floor",
-        "is_on_wall",
-        "is_on_ceiling",
-        "get_slide_collision_count",
-        # Rendering
-        "visible",
-        "show",
-        "hide",
-        "modulate",
-        "self_modulate",
-        "z_index",
-        # Strings
-        "str",
-        "print",
-        "printerr",
-        "printraw",
-        "push_error",
-        "push_warning",
-        # Type checking
-        "typeof",
-        "str",
-        "int",
-        "float",
-        "bool",
-        "String",
-        "Array",
-        "Dictionary",
-        # Globals
-        "randf",
-        "randi",
-        "rand_range",
-        "randomize",
-        "seed",
-    }
+    # Regex para extraer extends
+    EXTENDS_PATTERN = re.compile(r"extends\s+(\w+)")
 
-    # Palabras reservadas
-    KEYWORDS = {
-        "var",
-        "const",
-        "func",
-        "class",
-        "class_name",
-        "extends",
-        "signal",
-        "enum",
-        "static",
-        "export",
-        "onready",
-        "setget",
-        "breakpoint",
-        "pass",
-        "return",
-        "if",
-        "elif",
-        "else",
-        "for",
-        "while",
-        "match",
-        "break",
-        "continue",
-        "and",
-        "or",
-        "not",
-        "in",
-        "is",
-        "as",
-        "await",
-        "yield",
-        "super",
-        "self",
-        "true",
-        "false",
-        "null",
-    }
+    # Regex para decoradores
+    DECORATOR_PATTERN = re.compile(r"^(\s*)@(\w+)(\s.*)?$")
 
-    # Decoradores comunes
-    DECORATORS = {"@export", "@onready", "@tool", "@icon", "@static_unload"}
+    # Regex para llamadas a métodos en objetos
+    # Captura: obj.method(), $Node.method(), ClassName.method()
+    METHOD_CALL_PATTERN = re.compile(
+        r"(?:(\w+)|"
+        r"\$([\w/]+)|"
+        r"([A-Z][A-Za-z0-9_]+))"  # ClassName
+        r"\.(\w+)\s*\("
+    )
 
-    def __init__(self):
-        self.declared_vars: set[str] = set()
+    # Regex para funciones standalone (al inicio de línea o después de =)
+    # Solo si no tienen prefijo de objeto
+    STANDALONE_FUNC_PATTERN = re.compile(r"(?<![\w.$])(\w+)\s*\(")
+
+    # Regex para señales
+    SIGNAL_PATTERN = re.compile(r"signal\s+(\w+)")
+
+    # Regex para @export var sin tipo
+    EXPORT_NO_TYPE_PATTERN = re.compile(r"@export\s+var\s+(\w+)\s*(?![:\w])")
+
+    def __init__(self, api: Optional[GodotAPI] = None):
+        """
+        Inicializa el validador.
+
+        Args:
+            api: Instancia de GodotAPI. Si es None, usa la instancia global.
+        """
+        self.api = api or GodotAPI.get_instance()
+
+        # Estado del parseo
+        self.extends_type: Optional[str] = None
+        self.declared_signals: set[str] = set()
         self.declared_funcs: set[str] = set()
-        self.class_name: str | None = None
-        self.extends: str | None = None
 
     def validate(self, script_content: str) -> GDValidationResult:
         """
-        Valida un script GDScript
+        Valida un script GDScript.
 
         Args:
             script_content: Contenido del script .gd
@@ -197,286 +130,312 @@ class GDScriptValidator:
             GDValidationResult con los problemas encontrados
         """
         result = GDValidationResult()
+
+        # Extraer información del script
+        self._collect_declarations(script_content)
+
+        # Analizar cada línea
         lines = script_content.split("\n")
-
-        # Fase 1: Recolectar declaraciones
-        self._collect_declarations(lines)
-
-        # Fase 2: Analizar uso
         for line_num, line in enumerate(lines, 1):
             self._analyze_line(line_num, line, result)
 
         return result
 
-    def _collect_declarations(self, lines: list[str]):
-        """Recolecta variables y funciones declaradas"""
-        self.declared_vars = set()
+    def _collect_declarations(self, content: str) -> None:
+        """Recolecta información de declaraciones del script."""
+        self.extends_type = None
+        self.declared_signals = set()
         self.declared_funcs = set()
 
-        # Variables built-in de todos los nodos
-        self.declared_vars.update(
-            {
-                "position",
-                "rotation",
-                "scale",
-                "global_position",
-                "global_rotation",
-                "global_scale",
-                "visible",
-                "modulate",
-                "self_modulate",
-                "z_index",
-                "z_as_relative",
-                "name",
-                "filename",
-                "owner",
-                "get_parent",
-                "get_children",
-                "get_node",
-            }
-        )
+        lines = content.split("\n")
 
         for line in lines:
             stripped = line.strip()
 
-            # class_name
-            if stripped.startswith("class_name "):
-                match = re.match(r"class_name\s+(\w+)", stripped)
-                if match:
-                    self.class_name = match.group(1)
+            # Extraer extends
+            extends_match = self.EXTENDS_PATTERN.match(stripped)
+            if extends_match:
+                self.extends_type = extends_match.group(1)
 
-            # extends
-            elif stripped.startswith("extends "):
-                match = re.match(r"extends\s+(\w+)", stripped)
-                if match:
-                    self.extends = match.group(1)
-                    # Añadir variables del tipo padre (básico)
-                    self._add_parent_vars(match.group(1))
+            # Extraer señales
+            signal_match = self.SIGNAL_PATTERN.match(stripped)
+            if signal_match:
+                self.declared_signals.add(signal_match.group(1))
 
-            # Variables (@export var, @onready var, var, const)
-            elif re.match(r"^(@export|@onready\s+)?var\s+", stripped):
-                match = re.match(r"(?:@export|@onready\s+)?var\s+(\w+)", stripped)
-                if match:
-                    self.declared_vars.add(match.group(1))
+            # Extraer funciones
+            func_match = re.match(r"func\s+(\w+)", stripped)
+            if func_match:
+                self.declared_funcs.add(func_match.group(1))
 
-            elif stripped.startswith("const "):
-                match = re.match(r"const\s+(\w+)", stripped)
-                if match:
-                    self.declared_vars.add(match.group(1))
-
-            # Funciones (func _ready, func _process, etc.)
-            elif re.match(r"^func\s+", stripped):
-                match = re.match(r"func\s+(\w+)", stripped)
-                if match:
-                    func_name = match.group(1)
-                    self.declared_funcs.add(func_name)
-                    # Añadir parámetros como variables locales
-                    params_match = re.search(r"\((.*)\)", stripped)
-                    if params_match:
-                        params = params_match.group(1)
-                        for param in params.split(","):
-                            param = param.strip()
-                            if param and not param.startswith("#"):
-                                # Manejar type hints: param: Type
-                                param_name = param.split(":")[0].strip()
-                                if param_name:
-                                    self.declared_vars.add(param_name)
-
-            # Señales (signal nombre)
-            elif re.match(r"^signal\s+", stripped):
-                match = re.match(r"signal\s+(\w+)", stripped)
-                if match:
-                    # Las señales se pueden conectar, no son variables exactamente
-                    pass
-
-        # Añadir funciones virtuales comunes
-        self.declared_funcs.update(
-            {
-                "_ready",
-                "_process",
-                "_physics_process",
-                "_input",
-                "_unhandled_input",
-                "_enter_tree",
-                "_exit_tree",
-                "_notification",
-                "_get_configuration_warnings",
-            }
-        )
-
-    def _add_parent_vars(self, parent_type: str):
-        """Añade variables comunes según el tipo padre"""
-        if "Body" in parent_type or "Character" in parent_type:
-            self.declared_vars.update(
-                {
-                    "velocity",
-                    "move_and_slide",
-                    "is_on_floor",
-                    "is_on_wall",
-                    "is_on_ceiling",
-                    "get_slide_collision_count",
-                    "get_slide_collision",
-                }
-            )
-        if "Area" in parent_type:
-            self.declared_vars.update(
-                {
-                    "monitoring",
-                    "monitorable",
-                    "overlaps_body",
-                    "overlaps_area",
-                    "get_overlapping_bodies",
-                    "get_overlapping_areas",
-                }
-            )
-        if "Sprite" in parent_type or "Mesh" in parent_type:
-            self.declared_vars.update(
-                {
-                    "texture",
-                    "flip_h",
-                    "flip_v",
-                    "hframes",
-                    "vframes",
-                    "frame",
-                    "region_enabled",
-                    "region_rect",
-                }
-            )
-        if "Collision" in parent_type:
-            self.declared_vars.update(
-                {
-                    "shape",
-                    "disabled",
-                    "one_way_collision",
-                    "one_way_collision_margin",
-                }
-            )
-
-    def _analyze_line(self, line_num: int, line: str, result: GDValidationResult):
-        """Analiza una línea en busca de problemas"""
+    def _analyze_line(self, line_num: int, line: str, result: GDValidationResult) -> None:
+        """Analiza una línea en busca de problemas."""
         stripped = line.strip()
 
         # Ignorar comentarios y líneas vacías
         if not stripped or stripped.startswith("#"):
             return
 
-        # Ignorar declaraciones
-        if any(
-            stripped.startswith(kw)
-            for kw in ["var", "const", "func", "class", "signal", "enum"]
-        ):
+        # Ignorar declaraciones completas
+        if self._is_declaration(stripped):
+            self._check_declaration_issues(line_num, stripped, result)
             return
 
-        # Ignorar cadenas (strings)
-        # Reemplazar strings temporalemente
-        temp_line = re.sub(r'"[^"]*"', '"STRING"', stripped)
-        temp_line = re.sub(r"'[^']*'", "'STRING'", temp_line)
+        # Analizar llamadas a métodos
+        self._check_method_calls(line_num, stripped, result)
 
-        # Buscar llamadas a funciones no declaradas
-        func_calls = re.findall(r"(\w+)\s*\(", temp_line)
-        for func_name in func_calls:
-            if (
-                func_name not in self.declared_funcs
-                and func_name not in self.BUILTIN_FUNCTIONS
-                and func_name not in self.KEYWORDS
-                and not func_name[0].isdigit()
-            ):
-                # Podría ser una función de otra clase/objeto
-                # Solo reportar si parece una llamada directa
-                if not re.search(r"[.\]]", line.split("(")[0]):
-                    result.add_issue(
-                        line_num,
-                        "warning",
-                        f"Function '{func_name}' may not be declared",
-                        f"Ensure '{func_name}' is defined or is a built-in function",
-                    )
+        # Analizar decoradores
+        self._check_decorators(line_num, stripped, result)
 
-        # Buscar variables no declaradas (uso sin $)
-        # Patrón: variable = ... o if variable: o func(variable)
-        var_usage = re.findall(r"\b([a-z_][a-z0-9_]*)\b", temp_line, re.IGNORECASE)
-        for var_name in var_usage:
-            if (
-                var_name not in self.declared_vars
-                and var_name not in self.BUILTIN_FUNCTIONS
-                and var_name not in self.KEYWORDS
-                and len(var_name) > 1
-                and not var_name[0].isdigit()
-            ):
-                # Verificar si es acceso con $ (nodo)
-                if not re.search(rf'\$["\']?{var_name}', line) and not re.search(
-                    rf'["\']{var_name}["\']', line
-                ):
-                    # Podría ser una variable no declarada
-                    # Solo reportar en contextos claros
-                    if re.search(rf"\b{var_name}\s*[=!]=", temp_line) or re.search(
-                        rf"\b{var_name}\s*[+\-*/]", temp_line
-                    ):
-                        result.add_issue(
-                            line_num,
-                            "warning",
-                            f"Variable '{var_name}' may not be declared",
-                            f"Add 'var {var_name}' at class level or use @onready",
-                        )
+    def _is_declaration(self, line: str) -> bool:
+        """Determina si la línea es una declaración."""
+        declaration_keywords = [
+            "var ",
+            "const ",
+            "func ",
+            "class ",
+            "signal ",
+            "enum ",
+            "extends ",
+            "class_name ",
+            "static ",
+            "@",
+        ]
+        return any(line.startswith(kw) for kw in declaration_keywords)
 
-        # Buscar referencias con $ a nodos (información)
-        node_refs = re.findall(r'\$["\']?([\w/]+)["\']?', line)
-        for ref in node_refs:
+    def _check_declaration_issues(self, line_num: int, line: str, result: GDValidationResult) -> None:
+        """Verifica problemas en declaraciones."""
+        stripped = line.strip()
+
+        # Verificar @export var sin tipo hint
+        export_match = self.EXPORT_NO_TYPE_PATTERN.match(stripped)
+        if export_match:
+            var_name = export_match.group(1)
             result.add_issue(
                 line_num,
                 "info",
-                f"Node reference: '${ref}'",
-                "Ensure the node exists in the scene tree",
+                f"@export variable '{var_name}' has no type hint",
+                f"Consider adding a type hint: @export var {var_name}: TypeName",
             )
+
+        # Verificar decoradores deprecated
+        decorator_match = self.DECORATOR_PATTERN.match(stripped)
+        if decorator_match:
+            decorator_name = f"@{decorator_match.group(2)}"
+            if decorator_name in self.api.decorators_deprecated:
+                msg = self.api.removed.get(decorator_name, f"{decorator_name} is deprecated")
+                result.add_issue(
+                    line_num,
+                    "warning",
+                    msg,
+                    self.api.removed.get(
+                        decorator_name + "_message", "Consider using immediate initialization instead"
+                    ),
+                )
+
+    def _check_method_calls(self, line_num: int, line: str, result: GDValidationResult) -> None:
+        """Verifica llamadas a métodos."""
+
+        # Limpiar strings para evitar falsos positivos
+        temp_line = self._remove_strings(line)
+
+        # Buscar métodos llamados en objetos
+        # Patrón: obj.method() o $Node.method()
+        for match in self.METHOD_CALL_PATTERN.finditer(temp_line):
+            object_name = match.group(1) or match.group(2) or match.group(3)
+            method_name = match.group(4)
+
+            # Ignorar si es una keyword o tipo built-in
+            if self.api.is_keyword(object_name):
+                continue
+            if object_name in ["self", "super"]:
+                continue
+
+            # Verificar si es un tipo conocido
+            if object_name in self.api.types:
+                self._check_method_on_type(line_num, object_name, method_name, result)
+
+            # Verificar si el método existe como global
+            if not object_name:
+                if self.api.is_global_function(method_name):
+                    continue
+
+                # Verificar si es removed
+                was_removed, msg = self.api.is_removed(method_name)
+                if was_removed:
+                    result.add_issue(line_num, "error", f"'{method_name}' was removed in Godot 4: {msg}")
+
+        # Buscar funciones standalone (como test_move())
+        # Patrón: func_name() sin punto antes
+        # Excluir keywords y funciones conocidas
+        standalone_pattern = re.compile(r"(?<![.\w$])(\w+)\s*\(")
+        for match in standalone_pattern.finditer(temp_line):
+            func_name = match.group(1)
+
+            # Ignorar si es keyword, función global, o ya declarada en el script
+            if self.api.is_keyword(func_name):
+                continue
+            if self.api.is_global_function(func_name):
+                continue
+            if func_name in self.declared_funcs:
+                continue
+            if func_name.startswith("_") and func_name in self.api.virtual_methods:
+                continue
+
+            # Verificar si es una función removida
+            was_removed, msg = self.api.is_removed(func_name)
+            if was_removed:
+                result.add_issue(line_num, "error", f"'{func_name}' was removed in Godot 4: {msg}")
+
+    def _check_method_on_type(
+        self, line_num: int, type_name: str, method_name: str, result: GDValidationResult
+    ) -> None:
+        """Verifica un método en un tipo específico."""
+
+        # Verificar si el método existe
+        if not self.api.has_method(type_name, method_name):
+            # Podría ser un typo o método inexistente
+            # Solo warn si no es una función global o método del API
+            if not self.api.is_global_function(method_name):
+                # Verificar si fue removido
+                was_removed, msg = self.api.is_removed(method_name)
+                if was_removed:
+                    result.add_issue(line_num, "error", f"'{method_name}' was removed in Godot 4: {msg}")
+                elif self.extends_type == type_name:
+                    # Solo warn si estamos en el tipo correcto
+                    # Esto evita falsos positivos por herencia
+                    pass  # Método podría existir en tipo padre no en API
+
+    def _check_decorators(self, line_num: int, line: str, result: GDValidationResult) -> None:
+        """Verifica decoradores en la línea."""
+        decorator_match = self.DECORATOR_PATTERN.match(line.strip())
+        if not decorator_match:
+            return
+
+        decorator_name = f"@{decorator_match.group(2)}"
+
+        # Verificar decorador válido
+        if decorator_name not in self.api.decorators_valid:
+            # Podría ser un error de sintaxis
+            result.add_issue(
+                line_num,
+                "warning",
+                f"Unknown decorator '{decorator_name}'",
+                "Check Godot 4.6 documentation for valid decorators",
+            )
+
+    def _remove_strings(self, line: str) -> str:
+        """Remove strings from line to avoid false positives."""
+        # Remove double-quoted strings
+        line = re.sub(r'"[^"]*"', '""', line)
+        # Remove single-quoted strings
+        line = re.sub(r"'[^']*'", "''", line)
+        return line
+
+    def validate_with_godot(self, script_content: str, godot_result: dict) -> GDValidationResult:
+        """
+        Combina validación de API con resultados de Godot real.
+
+        Args:
+            script_content: Contenido del script
+            godot_result: Resultado de godot_check_script_syntax()
+
+        Returns:
+            Resultado combinado
+        """
+        # Primero, resultados de Godot (errores reales)
+        result = GDValidationResult()
+
+        # Agregar errores de Godot
+        for error in godot_result.get("errors", []):
+            result.add_issue(
+                error.get("line", 0),
+                "error",
+                f"[Godot] {error.get('message', 'Unknown error')}",
+                error.get("suggestion"),
+            )
+
+        # Agregar warnings de Godot
+        for warning in godot_result.get("warnings", []):
+            result.add_issue(
+                warning.get("line", 0),
+                "warning",
+                f"[Godot] {warning.get('message', 'Unknown warning')}",
+                warning.get("suggestion"),
+            )
+
+        # Luego, análisis de API (nuestra capa)
+        api_result = self.validate(script_content)
+        result.issues.extend(api_result.issues)
+
+        return result
 
 
 def validate_gdscript(script_content: str) -> GDValidationResult:
-    """Función conveniente para validar un script"""
+    """
+    Función conveniente para validar un script usando solo la API.
+
+    Para validación completa con errores de sintaxis reales,
+    usa GDScriptValidator.validate_with_godot() con godot_check_script_syntax().
+
+    Args:
+        script_content: Contenido del script .gd
+
+    Returns:
+        GDValidationResult con los problemas encontrados
+    """
     validator = GDScriptValidator()
     return validator.validate(script_content)
 
 
-# ============ TEST ============
+# ============ TESTS ============
 
 if __name__ == "__main__":
-    # Test con un script de ejemplo
-    test_script = """
+    # Test básico
+    test_scripts = [
+        # Script válido
+        """
 extends CharacterBody2D
 
 @export var speed: float = 200.0
-@onready var sprite: Sprite2D = $Sprite2D
-
-var health: int = 100
 
 func _ready():
-    # Esto debería detectar que 'max_health' no está declarado
-    max_health = 100
-    
-    # Esto es correcto
-    health = max_health  # Pero max_health no existe!
-    
-    # Función no declarada
-    custom_function()
-    
-    # Uso correcto de función built-in
-    var clamped = clamp(health, 0, 100)
-    
-    # Referencia a nodo
-    sprite.modulate = Color.RED
-"""
+    move_and_slide()
+
+func custom_method():
+    print("Hello")
+""",
+        # Script con problemas
+        """
+extends CharacterBody2D
+
+@onready var sprite = $Sprite  # @onready deprecated
+
+func _ready():
+    old_method()  # Método no existe
+    test_move()   # Removido en Godot 4
+    overlaps_body()  # No existe en CharacterBody2D
+
+func bad_method():
+    foo.bar()  # foo no es un tipo conocido
+""",
+    ]
 
     print("=" * 60)
-    print("GDScript Validator Test")
+    print("GDScript Validator v2.0 Test")
     print("=" * 60)
 
-    result = validate_gdscript(test_script)
+    validator = GDScriptValidator()
 
-    print(f"\nValid: {result.is_valid}")
-    print(f"Issues found: {len(result.issues)}")
-    print()
+    for i, script in enumerate(test_scripts, 1):
+        print(f"\n--- Test {i} ---")
+        result = validator.validate(script)
 
-    for issue in result.issues:
-        print(f"Line {issue.line} [{issue.severity.upper()}]: {issue.message}")
-        if issue.suggestion:
-            print(f"  → {issue.suggestion}")
+        print(f"Valid: {result.is_valid}")
+        print(f"Issues found: {len(result.issues)}")
+
+        for issue in result.issues:
+            print(f"  Line {issue.line} [{issue.severity.upper()}]: {issue.message}")
+            if issue.suggestion:
+                print(f"    → {issue.suggestion}")
 
     print("\n" + "=" * 60)
