@@ -100,6 +100,72 @@ EXPECTED_DEBUG_TOOLS = {
     "check_script_syntax",
 }
 
+# NUEVO v4.0.0: Godot CLI Bridge
+EXPECTED_EXPORT_TOOLS = {
+    "export_project",
+    "list_export_presets",
+    "validate_export_preset",
+    "get_export_log",
+}
+
+EXPECTED_RUNTIME_TOOLS = {
+    "run_gdscript",
+    "get_scene_info_runtime",
+    "get_performance_metrics",
+    "test_scene_load",
+    "get_classdb_info",
+    "call_group_runtime",
+}
+
+EXPECTED_IMPORT_TOOLS = {
+    "reimport_assets",
+    "get_import_settings",
+}
+
+EXPECTED_SCREENSHOT_TOOLS = {
+    "capture_scene_frame",
+    "capture_scene_sequence",
+}
+
+EXPECTED_MOVIE_TOOLS = {
+    "write_movie",
+    "write_movie_with_script",
+}
+
+# NUEVO v4.0.0: LSP/DAP Native
+EXPECTED_LSP_TOOLS = {
+    "lsp_get_completions",
+    "lsp_get_hover",
+    "lsp_get_symbols",
+    "lsp_get_diagnostics",
+}
+
+EXPECTED_DAP_TOOLS = {
+    "dap_start_debugging",
+    "dap_set_breakpoint",
+    "dap_continue",
+    "dap_step_over",
+    "dap_step_into",
+    "dap_get_stack_trace",
+}
+
+# NUEVO v4.0.0: Project Intelligence
+EXPECTED_DEPENDENCY_TOOLS = {
+    "get_dependency_graph",
+    "find_unused_assets",
+}
+
+EXPECTED_SIGNAL_GRAPH_TOOLS = {
+    "get_signal_graph",
+    "find_orphan_signals",
+}
+
+EXPECTED_CODE_ANALYSIS_TOOLS = {
+    "analyze_script",
+    "find_code_smells",
+    "get_project_metrics",
+}
+
 ALL_EXPECTED_TOOLS = (
     EXPECTED_SCENE_TOOLS
     | EXPECTED_NODE_TOOLS
@@ -110,6 +176,16 @@ ALL_EXPECTED_TOOLS = (
     | EXPECTED_SIGNAL_SCRIPT_TOOLS
     | EXPECTED_PROPERTY_TOOLS
     | EXPECTED_DEBUG_TOOLS
+    | EXPECTED_EXPORT_TOOLS
+    | EXPECTED_RUNTIME_TOOLS
+    | EXPECTED_IMPORT_TOOLS
+    | EXPECTED_SCREENSHOT_TOOLS
+    | EXPECTED_MOVIE_TOOLS
+    | EXPECTED_LSP_TOOLS
+    | EXPECTED_DAP_TOOLS
+    | EXPECTED_DEPENDENCY_TOOLS
+    | EXPECTED_SIGNAL_GRAPH_TOOLS
+    | EXPECTED_CODE_ANALYSIS_TOOLS
 )
 
 
@@ -155,8 +231,8 @@ class TestServerName:
     """Tests para el nombre del servidor."""
 
     def test_mcp_name(self):
-        """El servidor MCP debe llamarse 'godot-mcp'."""
-        assert mcp.name == "godot-mcp"
+        """El servidor MCP debe llamarse 'godot-mcp-v4'."""
+        assert mcp.name == "godot-mcp-v4"
 
 
 class TestIndividualModuleRegistration:

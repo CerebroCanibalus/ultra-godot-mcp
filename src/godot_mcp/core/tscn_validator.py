@@ -193,6 +193,13 @@ class TSCNValidator:
                 message="Duplicate node name '{name}' under parent '{parent}'",
                 level=ValidationLevel.ERROR,
             ),
+            # Rule 11: Unique node unique_ids (Godot 4.6+)
+            ValidationRule(
+                name="unique_node_ids",
+                check=self._check_unique_node_ids,
+                message="Duplicate node unique_id: {id} in nodes '{node1}' and '{node2}'",
+                level=ValidationLevel.ERROR,
+            ),
         ]
 
     def _is_root_node(self, scene: Scene, node: SceneNode) -> bool:
@@ -228,14 +235,65 @@ class TSCNValidator:
         return True
 
     def _check_unique_extresource_ids(self, scene: Scene) -> bool:
-        """Check that all ExtResource IDs are unique"""
+        """Check that all ExtResource IDs are unique (including numeric vs string collisions)"""
         ids = [r.id for r in scene.ext_resources if r.id]
-        return len(ids) == len(set(ids))
+        # Check exact duplicates
+        if len(ids) != len(set(ids)):
+            return False
+        # Check numeric collisions: "7" should not coexist with "7_g21cb"
+        numeric_ids = set()
+        for rid in ids:
+            try:
+                numeric_ids.add(int(rid))
+            except (ValueError, TypeError):
+                pass
+        for rid in ids:
+            try:
+                int(rid)  # Skip pure numeric
+                continue
+            except (ValueError, TypeError):
+                pass
+            # Check if this string ID starts with a number that exists as pure numeric
+            import re
+            match = re.match(r'^(\d+)_.*$', rid)
+            if match:
+                prefix_num = int(match.group(1))
+                if prefix_num in numeric_ids:
+                    return False
+        return True
 
     def _check_unique_subresource_ids(self, scene: Scene) -> bool:
-        """Check that all SubResource IDs are unique"""
+        """Check that all SubResource IDs are unique (including numeric vs string collisions)"""
         ids = [r.id for r in scene.sub_resources if r.id]
-        return len(ids) == len(set(ids))
+        # Check exact duplicates
+        if len(ids) != len(set(ids)):
+            return False
+        # Check numeric collisions: "7" should not coexist with "7_g21cb"
+        numeric_ids = set()
+        for rid in ids:
+            try:
+                numeric_ids.add(int(rid))
+            except (ValueError, TypeError):
+                pass
+        for rid in ids:
+            try:
+                int(rid)  # Skip pure numeric
+                continue
+            except (ValueError, TypeError):
+                pass
+            # Check if this string ID starts with a number that exists as pure numeric
+            import re
+            match = re.match(r'^(\d+)_.*$', rid)
+            if match:
+                prefix_num = int(match.group(1))
+                if prefix_num in numeric_ids:
+                    return False
+        return True
+
+    def _check_unique_node_ids(self, scene: Scene) -> bool:
+        """Check that all node unique_ids are unique (Godot 4.6+)"""
+        unique_ids = [n.unique_id for n in scene.nodes if n.unique_id > 0]
+        return len(unique_ids) == len(set(unique_ids))
 
     def _check_valid_node_types(self, scene: Scene) -> bool:
         """Check that all node types are valid Godot 4.6 types

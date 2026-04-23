@@ -9,6 +9,9 @@ Este documento define los subagentes especializados para el MCP Godot Python, un
 | Agente | Descripción | Propósito Principal |
 |--------|-------------|---------------------|
 | `@Parser` | Especialista en parsing TSCN y formatos Godot | Analizar y manipular archivos .tscn, .gd, .tres |
+| `@ArrayOps` | Operaciones quirúrgicas sobre arrays | Añadir/quitar/modificar elementos sin reescribir archivos |
+| `@LSPClient` | Language Server Protocol de Godot | Autocompletado, hover, diagnósticos de GDScript |
+| `@DAPClient` | Debug Adapter Protocol de Godot | Debugging, breakpoints, stack traces |
 | `@CacheMaster` | Gestión de cache LRU e invalidación | Optimizar operaciones repetitivas |
 | `@TemplateEngine` | Templates Jinja2 para nodos/scripts | Generar código GDScript automáticamente |
 | `@ToolSmith` | Creación de herramientas FastMCP | Extender funcionalidades del servidor |
@@ -349,6 +352,175 @@ print(info.usage)
 
 ---
 
+## ⚡ @ArrayOps - Operaciones Quirúrgicas sobre Arrays
+
+### Responsabilidades
+- Modificar arrays en escenas sin reescribir todo el archivo
+- Preservar tipos de arrays (`Array[PackedScene]`, `Array[int]`, etc.)
+- Soportar operaciones: append, remove, replace, insert, clear
+- Previsualizar cambios antes de aplicarlos
+- Manejar arrays con elementos complejos (ExtResource, SubResource)
+
+### Cuándo Invocarlo
+- Cuando necesitas añadir/quitar elementos de un array
+- Para modificar listas de recursos (scenes, textures, etc.)
+- Cuando quieres previsualizar cambios en arrays
+- Para operaciones batch sobre arrays
+
+### Herramientas MCP Usadas
+```python
+# Operaciones de arrays
+- mcp__godot__scene_array_operation  # Append/remove/replace/insert/clear
+- mcp__godot__preview_array_operation  # Previsualizar cambios
+```
+
+### Flujo de Trabajo
+```
+1. Identificar array objetivo (node + property)
+2. Seleccionar operación (append/remove/replace/insert/clear)
+3. Especificar valor/índice
+4. Previsualizar cambios (opcional)
+5. Aplicar operación
+```
+
+### Ejemplo de Uso
+```python
+# Añadir escena a spawner
+from godot_mcp.tools.array_tools import scene_array_operation
+
+result = scene_array_operation(
+    scene_path="spawner.tscn",
+    node_path="Spawner",
+    property_name="scenes",
+    operation="append",
+    value={"type": "ExtResource", "ref": "3_newscene"}
+)
+
+# Previsualizar antes de aplicar
+preview = preview_array_operation(
+    scene_path="spawner.tscn",
+    node_path="Spawner",
+    property_name="scenes",
+    operation="remove",
+    index=0
+)
+```
+
+---
+
+## 🔍 @LSPClient - Language Server Protocol
+
+### Responsabilidades
+- Proporcionar autocompletado de código GDScript
+- Mostrar documentación hover de símbolos
+- Obtener lista de símbolos en archivos
+- Diagnosticar errores y warnings en tiempo real
+
+### Cuándo Invocarlo
+- Cuando necesitas autocompletado de código
+- Para ver documentación de métodos/clases
+- Para encontrar todos los símbolos de un archivo
+- Para diagnosticar errores antes de ejecutar
+
+### Requisitos
+- **Godot Editor DEBE estar abierto** (puerto 6005)
+- Proyecto Godot válido con `project.godot`
+
+### Herramientas MCP Usadas
+```python
+# LSP Tools (requiere Godot Editor abierto)
+- mcp__godot__lsp_get_completions    # Autocompletado en posición
+- mcp__godot__lsp_get_hover          # Documentación de símbolo
+- mcp__godot__lsp_get_symbols        # Lista de símbolos
+- mcp__godot__lsp_get_diagnostics    # Errores y warnings
+```
+
+### Flujo de Trabajo
+```
+1. Verificar que Godot Editor esté abierto
+2. Proporr ruta del archivo GDScript
+3. Especificar línea y columna (0-based)
+4. Obtener resultados del LSP
+```
+
+### Ejemplo de Uso
+```python
+# Obtener autocompletado
+completions = lsp_get_completions(
+    project_path="D:/MyGame",
+    file_path="res://scripts/player.gd",
+    line=10,
+    column=5
+)
+
+# Ver documentación de método
+hover = lsp_get_hover(
+    project_path="D:/MyGame",
+    file_path="res://scripts/player.gd",
+    line=15,
+    column=8
+)
+```
+
+---
+
+## 🐛 @DAPClient - Debug Adapter Protocol
+
+### Responsabilidades
+- Iniciar sesiones de debugging
+- Gestionar breakpoints
+- Controlar ejecución (continue, step over, step into)
+- Obtener stack traces con variables
+
+### Cuándo Invocarlo
+- Para debuggear scripts GDScript
+- Para inspeccionar variables en runtime
+- Para navegar por el stack trace
+- Para breakpoints condicionales
+
+### Requisitos
+- **Godot Editor DEBE estar abierto** con debugging (puerto 6006)
+- Proyecto Godot válido
+
+### Herramientas MCP Usadas
+```python
+# DAP Tools (requiere Godot Editor en modo debug)
+- mcp__godot__dap_start_debugging     # Iniciar sesión debug
+- mcp__godot__dap_set_breakpoint      # Poner breakpoint
+- mcp__godot__dap_continue            # Continuar ejecución
+- mcp__godot__dap_step_over           # Step over
+- mcp__godot__dap_step_into           # Step into
+- mcp__godot__dap_get_stack_trace     # Obtener stack trace
+```
+
+### Flujo de Trabajo
+```
+1. Iniciar Godot Editor con debugging
+2. Llamar dap_start_debugging()
+3. Setear breakpoints con dap_set_breakpoint()
+4. Ejecutar escena
+5. Navegar con step_over/step_into
+6. Inspeccionar stack trace
+```
+
+### Ejemplo de Uso
+```python
+# Iniciar debugging
+session = dap_start_debugging("D:/MyGame")
+
+# Poner breakpoint
+breakpoint = dap_set_breakpoint(
+    project_path="D:/MyGame",
+    file_path="res://scripts/player.gd",
+    line=42
+)
+
+# Obtener stack trace cuando se detenga
+stack = dap_get_stack_trace("D:/MyGame")
+```
+
+---
+
 ## 🔄 Flujo de Trabajo Coordinado
 
 Los subagentes pueden trabajan juntos:
@@ -357,6 +529,8 @@ Los subagentes pueden trabajan juntos:
 @GodotSage (consulta)
        ↓
 @Parser (analiza) → @CacheMaster (cachea)
+       ↓
+@ArrayOps (modifica arrays) → @Parser (valida)
        ↓
 @TemplateEngine (genera) → @ToolSmith (crea herramienta)
        ↓

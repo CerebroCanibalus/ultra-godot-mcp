@@ -111,14 +111,30 @@ class NodeProperty:
 
 @dataclass
 class SceneNode:
-    """Scene node [node]"""
+    """Scene node [node]
+
+    Supports all Godot 4.6 node header fields:
+    - name, type, parent, unique_name_in_owner, instance
+    - unique_id: Stable scene-local ID for robust inheritance (Godot 4.6+)
+    - index: Order of appearance in tree (for inherited nodes precedence)
+    - owner: Node owner path
+    - groups: List of node groups
+    - instance_placeholder: Instance placeholder path
+    """
 
     name: str = ""
     type: str = ""
     parent: str = "."
     unique_name_in_owner: bool = False
     instance: str = ""  # ExtResource ID for scene instantiation
+    instance_placeholder: str = ""  # Instance placeholder path
+    unique_id: int = 0  # Godot 4.6+ stable scene-local ID
+    index: int = -1  # Order in tree (-1 = not set)
+    owner: str = ""  # Node owner path
+    groups: list = field(default_factory=list)  # Node groups
     properties: dict = field(default_factory=dict)
+    # Raw unknown fields preserved for forward compatibility
+    _unknown_fields: dict = field(default_factory=dict, repr=False)
 
     def to_dict(self) -> dict:
         result = {
@@ -127,6 +143,11 @@ class SceneNode:
             "parent": self.parent,
             "unique_name_in_owner": self.unique_name_in_owner,
             "instance": self.instance,
+            "instance_placeholder": self.instance_placeholder,
+            "unique_id": self.unique_id,
+            "index": self.index,
+            "owner": self.owner,
+            "groups": self.groups,
             "properties": self.properties,
         }
         return result
@@ -148,6 +169,29 @@ class SceneNode:
         # Instance attribute for scene instantiation (Godot format)
         if self.instance:
             header_parts.append(f'instance=ExtResource("{self.instance}")')
+        # Instance placeholder
+        if self.instance_placeholder:
+            header_parts.append(f'instance_placeholder="{self.instance_placeholder}"')
+        # Godot 4.6+ unique_id (stable scene-local ID)
+        if self.unique_id > 0:
+            header_parts.append(f"unique_id={self.unique_id}")
+        # index (order in tree)
+        if self.index >= 0:
+            header_parts.append(f'index="{self.index}"')
+        # owner
+        if self.owner:
+            header_parts.append(f'owner="{self.owner}"')
+        # groups
+        if self.groups:
+            header_parts.append(f'groups={self.groups}')
+        # Unknown fields (forward compatibility)
+        for key, value in self._unknown_fields.items():
+            if isinstance(value, bool):
+                header_parts.append(f"{key}={str(value).lower()}")
+            elif isinstance(value, (int, float)):
+                header_parts.append(f"{key}={value}")
+            else:
+                header_parts.append(f'{key}="{value}"')
 
         if header_parts:
             lines.append(f"[node {' '.join(header_parts)}]")
@@ -218,12 +262,15 @@ class Scene:
     def to_tscn(self) -> str:
         lines = []
 
-        # Auto-calculate load_steps: 1 (scene itself) + ext_resources + sub_resources
-        actual_resources = len(self.ext_resources) + len(self.sub_resources)
-        if actual_resources > 0:
-            self.header.load_steps = 1 + actual_resources
-        elif self.header.load_steps == 0:
-            self.header.load_steps = 1  # At least the scene itself
+        # load_steps is deprecated in Godot 4.6+ but preserved for backwards compatibility.
+        # We only auto-calculate if it was not present in the original file (load_steps=0).
+        # If the original file had load_steps set, we preserve it to avoid unnecessary diffs.
+        if self.header.load_steps == 0:
+            actual_resources = len(self.ext_resources) + len(self.sub_resources)
+            if actual_resources > 0:
+                self.header.load_steps = 1 + actual_resources
+            else:
+                self.header.load_steps = 1  # At least the scene itself
 
         # Header
         lines.append(self.header.to_tscn())
@@ -553,10 +600,26 @@ def _parse_sub_resource_header(line: str) -> dict:
 
 
 def _parse_node_header(line: str) -> dict:
-    """Parse [node] header line using regex to handle names with spaces."""
+    """Parse [node] header line using regex to handle names with spaces.
+
+    Supports all Godot 4.6 node header fields:
+    - name, type, parent, unique_name_in_owner, instance
+    - unique_id (int), index (int), owner (str)
+    - groups (list), instance_placeholder (str)
+    - Preserves unknown fields for forward compatibility
+    """
     import re
 
-    result = {"parent": ".", "instance": ""}
+    result = {
+        "parent": ".",
+        "instance": "",
+        "instance_placeholder": "",
+        "unique_id": 0,
+        "index": -1,
+        "owner": "",
+        "groups": [],
+        "_unknown_fields": {},
+    }
 
     content = line.strip().strip("[]")
 
@@ -576,12 +639,35 @@ def _parse_node_header(line: str) -> dict:
                 result[key] = value[13:-2]
             else:
                 result[key] = value
+        elif key == "unique_id":
+            # unique_id is an integer (Godot 4.6+)
+            try:
+                result[key] = int(value)
+            except (ValueError, TypeError):
+                result[key] = 0
+        elif key == "index":
+            # index is an integer (order in tree)
+            try:
+                result[key] = int(value)
+            except (ValueError, TypeError):
+                result[key] = -1
+        elif key == "groups":
+            # groups is a list like ["group1", "group2"]
+            try:
+                result[key] = _parse_gdscript_value(value)
+            except Exception:
+                result[key] = []
         elif value == "true":
             result[key] = True
         elif value == "false":
             result[key] = False
-        else:
+        elif key in ("name", "type", "parent", "owner", "instance_placeholder"):
             result[key] = value
+        elif key == "unique_name_in_owner":
+            result[key] = value == "true"
+        else:
+            # Unknown field - preserve for forward compatibility
+            result["_unknown_fields"][key] = value
 
     return result
 
@@ -733,7 +819,36 @@ def _parse_gdscript_value(value_str: str) -> Any:
             "height": int(float(parts[3])),
         }
 
-    # Handle Array [...]
+    # Handle typed arrays: Array[Type]([...]) or Array([...])
+    if value_str.startswith("Array"):
+        # Extract the array content after Array[Type]( or Array(
+        # Format: Array[PackedScene]([...]) or Array([...])
+        import re
+        
+        # Match Array[Type](content) or Array(content)
+        typed_array_match = re.match(r'Array\[(\w+)\]\((.*)\)$', value_str, re.DOTALL)
+        plain_array_match = re.match(r'Array\((.*)\)$', value_str, re.DOTALL)
+        
+        if typed_array_match:
+            array_type = typed_array_match.group(1)
+            inner = typed_array_match.group(2)
+            # The content might be wrapped in [...]
+            if inner.startswith("[") and inner.endswith("]"):
+                inner = inner[1:-1]
+            if inner.strip():
+                items = _parse_array_items(inner)
+                return {"type": "Array", "array_type": array_type, "items": items}
+            return {"type": "Array", "array_type": array_type, "items": []}
+        elif plain_array_match:
+            inner = plain_array_match.group(1)
+            if inner.startswith("[") and inner.endswith("]"):
+                inner = inner[1:-1]
+            if inner.strip():
+                items = _parse_array_items(inner)
+                return {"type": "Array", "items": items}
+            return {"type": "Array", "items": []}
+    
+    # Handle plain Array [...]
     if value_str.startswith("[") and value_str.endswith("]"):
         inner = value_str[1:-1]
         if inner.strip():
@@ -770,12 +885,38 @@ def _parse_gdscript_value(value_str: str) -> Any:
 
 
 def _parse_array_items(content: str) -> list:
-    """Parse array items"""
+    """Parse array items, handling nested structures and strings with commas."""
     items = []
     current = ""
     depth = 0
+    in_string = False
+    string_char = None
 
     for char in content:
+        # Handle string boundaries
+        if char in '"\'':
+            if not in_string:
+                in_string = True
+                string_char = char
+            elif string_char == char:
+                # Check if escaped (preceded by odd number of backslashes)
+                backslash_count = 0
+                for i in range(len(current) - 1, -1, -1):
+                    if current[i] == '\\':
+                        backslash_count += 1
+                    else:
+                        break
+                if backslash_count % 2 == 0:
+                    in_string = False
+                    string_char = None
+            current += char
+            continue
+
+        if in_string:
+            current += char
+            continue
+
+        # Handle nested structures
         if char in "([{":
             depth += 1
             current += char
@@ -916,6 +1057,10 @@ def _format_gdscript_value(value: Any) -> str:
             return f"Rect2({value.get('x', 0)}, {value.get('y', 0)}, {value.get('width', 0)}, {value.get('height', 0)})"
         if value.get("type") == "Array":
             items = [_format_gdscript_value(i) for i in value.get("items", [])]
+            array_type = value.get("array_type")
+            if array_type:
+                # Typed array: Array[Type]([...])
+                return f"Array[{array_type}]([{', '.join(items)}])"
             return f"[{', '.join(items)}]"
         if value.get("type") == "Dictionary":
             items = {
@@ -1034,6 +1179,12 @@ def parse_tscn_string(content: str) -> Scene:
                 parent=data.get("parent", "."),
                 unique_name_in_owner=data.get("unique_name_in_owner", False),
                 instance=data.get("instance", ""),
+                instance_placeholder=data.get("instance_placeholder", ""),
+                unique_id=data.get("unique_id", 0),
+                index=data.get("index", -1),
+                owner=data.get("owner", ""),
+                groups=data.get("groups", []),
+                _unknown_fields=data.get("_unknown_fields", {}),
             )
 
         elif section == SectionType.CONNECT:

@@ -1419,14 +1419,26 @@ NODE_PROPERTY_SCHEMAS: dict[str, dict[str, dict]] = {
         "shape": {"type": "sub_resource", "resource_type": "Shape3D"},
     },
     # --- Skeleton ---
-    "Skeleton2D": {},
+    "Skeleton2D": {
+        "modification_stack": {"type": "sub_resource", "resource_type": "SkeletonModificationStack2D"},
+    },
     "Skeleton3D": {
+        "bones": {"type": "Array"},
+        "show_rest_only": {"type": "bool"},
         "bone_orientation": {"type": "int"},
     },
     "Bone2D": {
+        "rest": {"type": "Transform2D"},
         "length": {"type": "float"},
+        "bone_angle": {"type": "float"},
+        "autocalculate_length_and_angle": {"type": "bool"},
+        "enabled": {"type": "bool"},
     },
-    "BoneAttachment3D": {},
+    "BoneAttachment3D": {
+        "bone_name": {"type": "String"},
+        "bone_idx": {"type": "int"},
+        "override_pose": {"type": "bool"},
+    },
     # --- LightOccluder ---
     "LightOccluder2D": {
         "occluder": {"type": "sub_resource", "resource_type": "OccluderPolygon2D"},

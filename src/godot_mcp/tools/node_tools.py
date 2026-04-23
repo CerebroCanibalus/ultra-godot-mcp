@@ -59,10 +59,40 @@ def _normalize_node_path(node_path: str) -> str:
     return node_path.strip("/")
 
 
-def _compute_node_full_path(node: SceneNode) -> str:
-    """Compute the full path of a node (e.g., 'Root/Player/Sprite')."""
-    if node.parent == ".":
+def _compute_node_full_path(node: SceneNode, scene: Scene = None) -> str:
+    """Compute the full path of a node (e.g., 'Root/Player/Sprite').
+    
+    If scene is provided, reconstructs the full hierarchical path by
+    traversing parent references recursively.
+    """
+    if node.parent == "." or not node.parent:
         return node.name
+    
+    # If scene is provided, try to build full path recursively
+    if scene:
+        # Build a name -> node lookup
+        name_to_node = {n.name: n for n in scene.nodes}
+        
+        def _build_path(node_name: str, visited: set = None) -> str:
+            if visited is None:
+                visited = set()
+            if node_name in visited:
+                return node_name  # Circular reference protection
+            visited.add(node_name)
+            
+            if node_name not in name_to_node:
+                return node_name
+            
+            n = name_to_node[node_name]
+            if n.parent == "." or not n.parent:
+                return n.name
+            
+            parent_path = _build_path(n.parent, visited)
+            return f"{parent_path}/{n.name}"
+        
+        return _build_path(node.name)
+    
+    # Fallback: simple parent/name (for backwards compatibility)
     return f"{node.parent}/{node.name}"
 
 

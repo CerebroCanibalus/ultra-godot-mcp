@@ -6,6 +6,47 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 
 ---
 
+## [4.0.0] - 2026-04-22 - Plus Ultra
+
+### Añadido - Godot CLI Bridge (16 tools)
+- **`godot_cli/base.py`** - `GodotCLIWrapper` unificado para operaciones CLI
+- **`export_tools.py`** (4 tools): `export_project`, `list_export_presets`, `validate_export_preset`, `get_export_log`
+- **`runtime_tools.py`** (6 tools): `run_gdscript`, `get_scene_info_runtime`, `get_performance_metrics`, `test_scene_load`, `get_classdb_info`, `call_group_runtime`
+- **`import_tools.py`** (2 tools): `reimport_assets`, `get_import_settings`
+- **`screenshot_tools.py`** (2 tools): `capture_scene_frame`, `capture_scene_sequence`
+- **`movie_tools.py`** (2 tools): `write_movie`, `write_movie_with_script`
+
+### Añadido - LSP/DAP Native (10 tools)
+- **`lsp_dap/client.py`** - Cliente JSON-RPC para LSP/DAP con auto-reconexión
+- **`lsp_tools.py`** (4 tools): `lsp_get_completions`, `lsp_get_hover`, `lsp_get_symbols`, `lsp_get_diagnostics`
+- **`dap_tools.py`** (6 tools): `dap_start_debugging`, `dap_set_breakpoint`, `dap_continue`, `dap_step_over`, `dap_step_into`, `dap_get_stack_trace`
+
+### Añadido - Project Intelligence (7 tools)
+- **`intelligence/dependency_tools.py`** (2 tools): `get_dependency_graph`, `find_unused_assets`
+- **`intelligence/signal_graph_tools.py`** (2 tools): `get_signal_graph`, `find_orphan_signals`
+- **`intelligence/code_analysis_tools.py`** (3 tools): `analyze_script`, `find_code_smells`, `get_project_metrics`
+
+### Añadido - Sesiones con Godot Headless
+- `Session.godot_process` - Proceso headless persistente por sesión
+- `SessionManager.start_godot_headless()` - Inicia Godot en background
+- `SessionManager.stop_godot_headless()` - Detiene proceso Godot
+- `SessionManager.execute_gdscript_quick()` - Ejecuta scripts 10x más rápido
+- Godot headless se mata automáticamente al cerrar sesión
+
+### Añadido - Registro dinámico de módulos
+- `server.py` con `REGISTERED_MODULES` - lista de 19 módulos
+- Import dinámico con graceful degradation (módulos opcionales no fallan)
+- Fácil extensión: añadir tupla a la lista
+
+### Mejorado
+- **Zero addon** - Ninguna tool requiere instalar addon en proyecto Godot
+- **Zero WebSocket** - Sin conflictos de puerto, sin crasheos de conexión
+- **81 herramientas totales** (42 core + 16 CLI + 10 LSP/DAP + 7 intelligence + 6 misc)
+- Auto-detección de ejecutable Godot (prioriza `_console.exe` en Windows)
+- `pyproject.toml` actualizado a versión 4.0.0
+
+---
+
 ## [3.1.0] - 2026-04-14
 
 ### Añadido

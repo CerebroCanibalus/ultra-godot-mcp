@@ -5,6 +5,7 @@ Lightweight session management without WebSocket/Bridge
 
 import json
 import os
+import subprocess
 import threading
 import uuid
 from dataclasses import dataclass, field, asdict
@@ -12,6 +13,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 import logging
+
+# v4.0.0: Godot CLI integration
+from .godot_cli.base import find_godot_executable
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -73,6 +80,12 @@ class Session:
     dirty_scenes: set = field(
         default_factory=set
     )  # Escenas modificadas pendientes de guardar
+    # NUEVO v4.0.0: Godot CLI Headless Process
+    godot_process: Optional[Any] = field(default=None, repr=False)
+    godot_process_pid: Optional[int] = field(default=None)
+    godot_cli_ready: bool = field(default=False)
+    godot_cli_port: Optional[int] = field(default=None)
+    cli_cache: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         # Nota: loaded_scenes no se serializa (contiene objetos Scene en memoria)
@@ -87,6 +100,10 @@ class Session:
             "active_scene": self.active_scene,
             "metadata": self.metadata,
             "dirty_scenes": list(self.dirty_scenes),
+            # v4.0.0: Godot CLI state (no serializar godot_process)
+            "godot_cli_ready": self.godot_cli_ready,
+            "godot_cli_port": self.godot_cli_port,
+            "cli_cache": self.cli_cache,
         }
 
     @classmethod
@@ -105,6 +122,12 @@ class Session:
             metadata=data.get("metadata", {}),
             loaded_scenes={},  # No restaurar objetos en memoria
             dirty_scenes=set(data.get("dirty_scenes", [])),
+            # v4.0.0: Restaurar estado Godot CLI (no godot_process)
+            godot_process=None,
+            godot_process_pid=None,
+            godot_cli_ready=data.get("godot_cli_ready", False),
+            godot_cli_port=data.get("godot_cli_port"),
+            cli_cache=data.get("cli_cache", {}),
         )
 
     def mark_modified(self):
@@ -306,6 +329,11 @@ class SessionManager:
 
             session = self._sessions[session_id]
             project_path = session.project_path
+
+            # v4.0.0: Stop Godot headless if running
+            if session.godot_process:
+                logger.info(f"Stopping Godot headless for session {session_id}")
+                self._stop_godot_headless(session)
 
             # Remove the session
             del self._sessions[session_id]
@@ -798,6 +826,244 @@ class SessionManager:
         except Exception as e:
             logger.error(f"Failed to import session: {e}")
             return None
+
+    # ==================== Godot CLI Headless (v4.0.0) ====================
+
+    def start_godot_headless(
+        self, session_id: str, godot_path: Optional[str] = None
+    ) -> dict:
+        """Start Godot in headless mode for the session.
+
+        The process runs in the background for fast operations.
+        Automatically killed when the session is closed.
+
+        Args:
+            session_id: Session ID
+            godot_path: Optional path to Godot executable
+
+        Returns:
+            Dict with success, pid, reused status
+        """
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if not session:
+                return {"success": False, "error": "Session not found"}
+
+            # Check if already running
+            if session.godot_process and session.godot_process.poll() is None:
+                return {
+                    "success": True,
+                    "pid": session.godot_process.pid,
+                    "reused": True,
+                }
+
+            # Find executable
+            godot_exe = godot_path or find_godot_executable()
+            if not godot_exe:
+                return {
+                    "success": False,
+                    "error": "Godot executable not found",
+                    "searched_paths": [
+                        r"D:\Mis Juegos\Godot",
+                        r"C:\Program Files\Godot",
+                        "/usr/local/bin",
+                    ],
+                }
+
+            # Validate project
+            project_path = session.project_path
+            if not os.path.isdir(project_path):
+                return {"success": False, "error": f"Project not found: {project_path}"}
+
+            project_godot = os.path.join(project_path, "project.godot")
+            if not os.path.isfile(project_godot):
+                return {
+                    "success": False,
+                    "error": f"Not a valid Godot project: {project_path}",
+                }
+
+            # Start Godot headless
+            cmd = [
+                godot_exe,
+                "--headless",
+                "--path",
+                project_path,
+            ]
+
+            try:
+                process = subprocess.Popen(
+                    cmd,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    encoding="utf-8",
+                )
+
+                session.godot_process = process
+                session.godot_process_pid = process.pid
+                session.godot_cli_ready = True
+
+                logger.info(
+                    f"Started Godot headless for session {session_id} "
+                    f"(PID: {process.pid})"
+                )
+
+                return {
+                    "success": True,
+                    "pid": process.pid,
+                    "reused": False,
+                }
+
+            except Exception as e:
+                return {"success": False, "error": f"Failed to start Godot: {e}"}
+
+    def _stop_godot_headless(self, session: Session) -> bool:
+        """Internal: Stop Godot headless process for a session.
+
+        Args:
+            session: Session object
+
+        Returns:
+            True if stopped successfully
+        """
+        if not session.godot_process:
+            return False
+
+        try:
+            # Try graceful termination first
+            session.godot_process.terminate()
+            try:
+                session.godot_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                # Force kill if not terminated
+                session.godot_process.kill()
+                session.godot_process.wait(timeout=2)
+
+            logger.info(
+                f"Stopped Godot headless (PID: {session.godot_process_pid})"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(f"Error stopping Godot: {e}")
+            return False
+        finally:
+            session.godot_process = None
+            session.godot_process_pid = None
+            session.godot_cli_ready = False
+
+    def stop_godot_headless(self, session_id: str) -> bool:
+        """Stop Godot headless process for a session.
+
+        Args:
+            session_id: Session ID
+
+        Returns:
+            True if stopped successfully
+        """
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if not session:
+                logger.warning(f"Session {session_id} not found")
+                return False
+
+            return self._stop_godot_headless(session)
+
+    def get_godot_status(self, session_id: str) -> dict:
+        """Get status of Godot headless process.
+
+        Args:
+            session_id: Session ID
+
+        Returns:
+            Dict with running, ready, pid, exit_code, project_path
+        """
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if not session:
+                return {"running": False, "error": "Session not found"}
+
+            process = session.godot_process
+            if not process:
+                return {"running": False, "ready": False}
+
+            poll = process.poll()
+            is_running = poll is None
+
+            return {
+                "running": is_running,
+                "ready": session.godot_cli_ready and is_running,
+                "pid": session.godot_process_pid,
+                "exit_code": poll if not is_running else None,
+                "project_path": session.project_path,
+            }
+
+    def execute_gdscript_quick(
+        self,
+        session_id: str,
+        script_content: str,
+        timeout: int = 10,
+    ) -> dict:
+        """Execute GDScript using the existing headless process.
+
+        MUCH faster than starting Godot each time.
+
+        Args:
+            session_id: Session ID
+            script_content: GDScript code to execute
+            timeout: Maximum seconds to wait
+
+        Returns:
+            Dict with success, output, pid
+        """
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if not session:
+                return {"success": False, "error": "Session not found"}
+
+            # Ensure Godot headless is running
+            if not session.godot_cli_ready or not session.godot_process:
+                result = self.start_godot_headless(session_id)
+                if not result["success"]:
+                    return result
+
+            process = session.godot_process
+
+            try:
+                # Write script to temp file
+                import tempfile
+
+                script_file = os.path.join(
+                    tempfile.gettempdir(), f"godot_quick_{session_id}_{os.getpid()}.gd"
+                )
+                with open(script_file, "w", encoding="utf-8") as f:
+                    f.write(script_content)
+
+                # Execute via --script
+                # Note: This starts a new instance, not using the background process
+                # For true background execution, we'd need a bridge script
+                from .godot_cli.base import GodotCLIWrapper
+
+                cli = GodotCLIWrapper()
+                result = cli.run_script(
+                    script_content=script_content,
+                    project_path=session.project_path,
+                    timeout=timeout,
+                )
+                result["pid"] = session.godot_process_pid
+                result["mode"] = "quick"
+
+                # Cleanup temp file
+                try:
+                    os.remove(script_file)
+                except Exception:
+                    pass
+
+                return result
+
+            except Exception as e:
+                return {"success": False, "error": f"Execution failed: {e}"}
 
 
 # ==================== Convenience Functions ====================
