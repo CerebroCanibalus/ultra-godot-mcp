@@ -3,7 +3,7 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Godot 4.6+](https://img.shields.io/badge/Godot-4.6+-478cbf?logo=godotengine&logoColor=white)](https://godotengine.org/)
 [![Tests](https://img.shields.io/badge/Tests-496%20passing-2ea44f)](docs/TESTS.md)
-[![Version](https://img.shields.io/badge/Version-4.0.0-6f42c1)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-4.3.0-6f42c1)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > *"La técnica es una actividad compositora o destructora, violenta, y esto es lo que Aristóteles llamaba la poiesis, la poesía, precisamente."* — Gustavo Bueno
@@ -19,7 +19,7 @@ Servidor MCP para Godot Engine que permite a IAs y asistentes controlar proyecto
 | Característica | Descripción |
 |---|---|
 | 🔍 **Parsing nativo TSCN** | Lee y escribe archivos `.tscn` directamente, sin Godot headless |
-| 🛠️ **81 herramientas** | 4 capas: Core (42) + CLI Bridge (16) + LSP/DAP (10) + Intelligence (7) |
+| 🛠️ **98 herramientas** | 7 capas: Core (42) + CLI Bridge (16) + LSP/DAP (10) + Intelligence (7) + Skeleton (6) + Array Ops (2) + Resource Builder (9) |
 | 🎯 **Inspector unificado** | `set_node_properties` maneja TODOS los tipos de propiedad automáticamente |
 | 🔄 **Sesiones en memoria** | Workspace con dirty tracking, lazy loading y cache LRU |
 | ⚡ **Godot headless persistente** | Proceso Godot corriendo en background por sesión (10x más rápido) |
@@ -52,13 +52,13 @@ La diferencia principal: otros MCPs lanzan `godot --headless --script` por cada 
 
 | Dimensión | [godot-mcp](https://github.com/Coding-Solo/godot-mcp) | [GoPeak](https://github.com/GoD0Yun/Gopeak-godot-mcp) | [GodotIQ](https://godotiq.com) | **Ultra Godot MCP** |
 |---|---|---|---|---|
-| **Herramientas** | ~15 | 110+ | 36 (22 free + 14 Pro) | **81** |
+| **Herramientas** | ~15 | 110+ | 36 (22 free + 14 Pro) | **98** |
 | **Precio** | Gratis | Gratis (MIT) | $19 Pro | **Gratis (MIT)** |
 | **Addon requerido** | ❌ | ✅ (GDScript) | ✅ (18/22 tools) | **❌ Zero addon** |
 | **WebSocket** | ❌ | ✅ (4 puertos) | ✅ (puerto 6007) | **❌ Zero WebSocket** |
 | **Parsing** | Godot headless | Godot headless | Godot headless | **Nativo Python** |
 | **Velocidad** | Lento (2-5s/op) | Lento (2-5s/op) | Lento (2-5s/op) | **<10ms / <1s** |
-| **Sin Godot instalado** | ❌ | ❌ | ❌ | **✅ (71/81 tools)** |
+| **Sin Godot instalado** | ❌ | ❌ | ❌ | **✅ (70+/98 tools)** |
 | **Sesiones en memoria** | ❌ | ❌ | ❌ | **✅** |
 | **Cache LRU** | ❌ | ❌ | ❌ | **✅** |
 | **Validación Poka-Yoke** | ❌ | ❌ | ❌ | **✅** |
@@ -76,7 +76,7 @@ La diferencia principal: otros MCPs lanzan `godot --headless --script` por cada 
 | **Docs en español** | ❌ | ❌ | ❌ | **✅** |
 | **Instalación** | `npx` (npm) | `npx` (npm) | `pip` (Python) | **`pip` (Python)** |
 
-> **Nota:** GoPeak tiene más herramientas en número (110+), pero requiere addon GDScript + WebSocket + 4 puertos. Ultra Godot MCP prioriza **zero-config**: 81 herramientas que funcionan sin tocar tu proyecto Godot.
+> **Nota:** GoPeak tiene más herramientas en número (110+), pero requiere addon GDScript + WebSocket + 4 puertos. Ultra Godot MCP prioriza **zero-config**: 98 herramientas que funcionan sin tocar tu proyecto Godot.
 
 ### Comparativa de funcionalidades
 
@@ -381,19 +381,69 @@ Maneja **automáticamente** todos los tipos:
 | `run_debug_scene` | Ejecutar escena en modo headless y capturar errores, warnings y prints |
 | `check_script_syntax` | Verificar sintaxis GDScript con `--check-only` de Godot |
 
+### Capa 5: Skeleton (6 tools) — Sin Godot
+
+#### Skeleton2D
+| Herramienta | Descripción |
+|---|---|
+| `create_skeleton2d` | Crear nodo Skeleton2D en escena |
+| `add_bone2d` | Añadir hueso Bone2D al skeleton |
+| `setup_polygon2d_skinning` | Vincular Polygon2D al skeleton para deformación |
+
+#### Skeleton3D
+| Herramienta | Descripción |
+|---|---|
+| `create_skeleton3d` | Crear nodo Skeleton3D en escena |
+| `add_bone_attachment3d` | Vincular nodos a huesos del skeleton |
+| `setup_mesh_skinning` | Vincular MeshInstance3D al skeleton |
+
+### Capa 6: Array Operations (2 tools) — Sin Godot
+
+| Herramienta | Descripción |
+|---|---|
+| `scene_array_operation` | Modificar arrays en escenas (append/remove/replace/insert/clear) |
+| `preview_array_operation` | Previsualizar cambios en arrays sin aplicarlos |
+
+### Capa 7: Resource Builder (9 tools) — Sin Godot
+
+#### Genéricos
+| Herramienta | Descripción |
+|---|---|
+| `build_resource` | Crear cualquier SubResource genérico |
+| `build_nested_resource` | Crear jerarquías de recursos con referencias cruzadas |
+
+#### Animation
+| Herramienta | Descripción |
+|---|---|
+| `create_animation` | Crear Animation con tracks de keyframes |
+| `create_state_machine` | Crear AnimationNodeStateMachine con estados y transiciones |
+
+#### AnimationTree
+| Herramienta | Descripción |
+|---|---|
+| `create_blend_space_1d` | Crear BlendSpace1D (idle→walk→run) |
+| `create_blend_space_2d` | Crear BlendSpace2D (direcciones 4-way) |
+| `create_blend_tree` | Crear BlendTree (grafo de mezcla) |
+
+#### Assets
+| Herramienta | Descripción |
+|---|---|
+| `create_sprite_frames` | Crear SpriteFrames (animaciones frame-by-frame) |
+| `create_tile_set` | Crear TileSet (atlas + colisiones) |
+
 ---
 
 ## 📚 Documentación
 
 | Documento | Contenido |
 |---|---|
-| [TOOLS.md](docs/TOOLS.md) | Referencia completa de cada herramienta |
+| [TOOLS.md](docs/TOOLS.md) | Referencia completa de las 98 herramientas |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Diseño interno, sesiones y cache |
 | [ARCHITECTURE_v4.md](docs/ARCHITECTURE_v4.md) | Arquitectura v4.0.0 (4 capas) |
 | [CLEANUP_v4.md](docs/CLEANUP_v4.md) | Análisis de limpieza e integración con sesiones |
 | [COMMON_ERRORS.md](docs/COMMON_ERRORS.md) | Errores frecuentes y soluciones |
 | [TESTS.md](docs/TESTS.md) | Métricas de testing y cobertura |
-| [CHANGELOG.md](CHANGELOG.md) | Historial de versiones |
+| [CHANGELOG.md](CHANGELOG.md) | Historial de versiones (v4.3.0) |
 
 ---
 
@@ -406,7 +456,7 @@ pytest tests/e2e/          # Solo E2E
 pytest tests/test_server.py -v  # Tests específicos
 ```
 
-**Estado:** 496 tests pasando · 16 tests de server en v4.0.0
+**Estado:** 496 tests pasando · 22 módulos registrados en v4.3.0
 
 ---
 
@@ -414,21 +464,21 @@ pytest tests/test_server.py -v  # Tests específicos
 
 ```
 src/godot_mcp/
-├── server.py                    # Entry point FastMCP (registro dinámico)
+├── server.py                    # Entry point FastMCP (22 módulos registrados)
 ├── session_manager.py           # Gestión de sesiones + Godot headless
 ├── core/                        # Núcleo
 │   ├── api/                     # APIs de Godot (datos externos)
 │   │   ├── __init__.py          # GodotAPI + NodeAPI classes
 │   │   ├── godot_api_4.6.json   # API de Godot 4.6.1 (GDScript)
 │   │   └── godot_nodes_4.6.json # Tipos de nodos 4.6.1 (TSCN)
-│   ├── tscn_parser.py           # Parser de escenas Godot
+│   ├── tscn_parser.py           # Parser de escenas Godot (v4.3: StringName, Vector2i/3i, Rect2i)
 │   ├── tres_parser.py           # Parser de recursos
 │   ├── tscn_validator.py        # Validador de escenas (v2.0)
 │   ├── gdscript_validator.py    # Validador de scripts (v2.0)
 │   ├── cache.py                 # Cache LRU
 │   ├── models.py                # Modelos Pydantic
 │   └── project_index.py         # Índice de proyectos
-├── tools/                       # Capa 1: Core (v3.x)
+├── tools/                       # Capas 1, 5, 6, 7
 │   ├── scene_tools.py           # Operaciones de escenas
 │   ├── node_tools.py            # Operaciones de nodos
 │   ├── resource_tools.py        # Gestión de recursos
@@ -437,7 +487,10 @@ src/godot_mcp/
 │   ├── validation_tools.py      # Validación
 │   ├── signal_and_script_tools.py  # Señales y scripts
 │   ├── property_tools.py        # Inspector unificado
-│   └── debug_tools.py           # Debug
+│   ├── debug_tools.py           # Debug
+│   ├── skeleton_tools.py        # Capa 5: Skeleton2D/3D
+│   ├── array_tools.py           # Capa 6: Array Operations
+│   └── resource_builder_tools.py # Capa 7: Resource Builder (9 tools)
 ├── godot_cli/                   # Capa 2: CLI Bridge (v4.0.0)
 │   ├── base.py                  # GodotCLIWrapper
 │   ├── export_tools.py          # Export builds

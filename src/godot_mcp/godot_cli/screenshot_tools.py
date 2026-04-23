@@ -58,9 +58,9 @@ def capture_scene_frame(
     """
     cli = GodotCLIWrapper(godot_path)
     
-    valid = cli.validate_project(project_path)
-    if not valid["valid"]:
-        return {"success": False, "error": valid["error"]}
+    is_valid, error = cli.validate_project(project_path)
+    if not is_valid:
+        return {"success": False, "error": error}
     
     # Setup output directory
     if output_path:
@@ -180,9 +180,9 @@ def capture_scene_sequence(
     """
     cli = GodotCLIWrapper(godot_path)
     
-    valid = cli.validate_project(project_path)
-    if not valid["valid"]:
-        return {"success": False, "error": valid["error"]}
+    is_valid, error = cli.validate_project(project_path)
+    if not is_valid:
+        return {"success": False, "error": error}
     
     # Setup output directory
     if not output_dir:

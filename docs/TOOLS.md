@@ -1,8 +1,8 @@
 # 🛠️ Referencia de Herramientas MCP
 
-Todas las herramientas disponibles en Ultra Godot MCP v4.1.0.
+Todas las herramientas disponibles en Ultra Godot MCP v4.3.0.
 
-**Total: 87 herramientas** organizadas en 4 capas arquitectónicas + módulo Skeleton.
+**Total: 98 herramientas** organizadas en 7 capas arquitectónicas.
 
 ---
 
@@ -31,6 +31,11 @@ Todas las herramientas disponibles en Ultra Godot MCP v4.1.0.
 | **Intelligence** | Code Analysis | 3 | ❌ |
 | **Skeleton** | Skeleton2D | 3 | ❌ |
 | **Skeleton** | Skeleton3D | 3 | ❌ |
+| **Array Ops** | Array Operations | 2 | ❌ |
+| **Resource Builder** | Genéricos | 2 | ❌ |
+| **Resource Builder** | Animation | 2 | ❌ |
+| **Resource Builder** | AnimationTree | 3 | ❌ |
+| **Resource Builder** | Assets | 2 | ❌ |
 
 ---
 
@@ -1413,6 +1418,539 @@ setup_mesh_skinning(
 
 ---
 
-*Documento de herramientas v4.1.0*
-*Fecha: 2026-04-22*
-*Total: 87 herramientas*
+---
+
+## Capa 6: Array Operations (2 herramientas)
+
+Operaciones quirúrgicas sobre arrays en escenas TSCN **sin reescribir el archivo completo**. Preserva el tipo del array (`Array[PackedScene]`, `Array[int]`, etc.) y todos los metadatos de la escena.
+
+### Array Operations
+
+#### `scene_array_operation`
+
+Realiza operaciones sobre arrays de nodos en escenas.
+
+```python
+scene_array_operation(
+    session_id: str,
+    scene_path: str,
+    node_path: str,
+    property_name: str,
+    operation: str,       # "append" | "remove" | "replace" | "insert" | "clear"
+    value: Any = None,    # Para append, replace, insert
+    index: int = -1       # Para remove, replace, insert
+) -> dict
+```
+
+**Operaciones:**
+
+| Operación | Descripción | Parámetros requeridos |
+|-----------|-------------|----------------------|
+| `append` | Añade elemento al final | `value` |
+| `remove` | Elimina elemento por índice | `index` |
+| `replace` | Reemplaza elemento en índice | `index`, `value` |
+| `insert` | Inserta elemento en posición | `index`, `value` |
+| `clear` | Vacía el array completo | Ninguno |
+
+**Ejemplo - Añadir escena a un spawner:**
+```python
+scene_array_operation(
+    session_id=session_id,
+    scene_path="spawner.tscn",
+    node_path="Spawner",
+    property_name="scenes",
+    operation="append",
+    value={"type": "ExtResource", "ref": "3_newscene"}
+)
+```
+
+**Ejemplo - Eliminar elemento:**
+```python
+scene_array_operation(
+    session_id=session_id,
+    scene_path="spawner.tscn",
+    node_path="Spawner",
+    property_name="scenes",
+    operation="remove",
+    index=2
+)
+```
+
+#### `preview_array_operation`
+
+Previsualiza qué cambios haría una operación de array **sin aplicarlos**.
+
+```python
+preview_array_operation(
+    session_id: str,
+    scene_path: str,
+    node_path: str,
+    property_name: str,
+    operation: str,
+    value: Any = None,
+    index: int = -1
+) -> dict
+```
+
+**Retorna:**
+```json
+{
+  "preview": true,
+  "operation": "append",
+  "before": ["Scene1", "Scene2"],
+  "after": ["Scene1", "Scene2", "NewScene"],
+  "diff": "+ NewScene"
+}
+```
+
+---
+
+## Capa 7: Resource Builder (9 herramientas)
+
+Sistema genérico de construcción de SubResources complejos. Usa un patrón de capas: desde genéricos hasta high-level helpers. **No requiere Godot.**
+
+### Capa 7.1: Genéricos
+
+#### `build_resource`
+
+Crea cualquier SubResource genérico en una escena.
+
+```python
+build_resource(
+    session_id: str,
+    scene_path: str,
+    resource_type: str,
+    properties: dict = None,
+    resource_id: str = None
+) -> dict
+```
+
+**Ejemplo - Crear un RectangleShape2D:**
+```python
+build_resource(
+    session_id=session_id,
+    scene_path="player.tscn",
+    resource_type="RectangleShape2D",
+    properties={
+        "size": {"type": "Vector2", "x": 32, "y": 48}
+    },
+    resource_id="player_shape"
+)
+```
+
+#### `build_nested_resource`
+
+Crea jerarquías de SubResources con referencias cruzadas entre ellos.
+
+```python
+build_nested_resource(
+    session_id: str,
+    scene_path: str,
+    root_type: str,
+    root_id: str,
+    children: list,          # [{"type": "...", "id": "...", "properties": {...}}, ...]
+    root_properties: dict = None,
+    array_properties: set = None  # Keys que deben ser arrays planos
+) -> dict
+```
+
+**Ejemplo - Animation con tracks:**
+```python
+build_nested_resource(
+    session_id=session_id,
+    scene_path="anim.tscn",
+    root_type="Animation",
+    root_id="my_anim",
+    children=[
+        {"type": "AnimationTrackKeyframeValue", "id": "kf_0", "properties": {...}},
+        {"type": "AnimationTrackKeyframeValue", "id": "kf_1", "properties": {...}},
+    ],
+    root_properties={
+        "tracks/0/keys/times": [0.0, 1.0],
+        "tracks/0/keys/transitions": [1.0, 1.0],
+        "tracks/0/keys/updates": [
+            {"type": "SubResource", "ref": "kf_0"},
+            {"type": "SubResource", "ref": "kf_1"},
+        ],
+    },
+    array_properties={"tracks/0/keys/times", "tracks/0/keys/transitions"}
+)
+```
+
+---
+
+### Capa 7.2: Animation Helpers
+
+#### `create_animation`
+
+Crea un recurso `Animation` con tracks de keyframes.
+
+```python
+create_animation(
+    session_id: str,
+    scene_path: str,
+    name: str,
+    length: float,
+    tracks: list,
+    loop_mode: int = 0,
+    step: float = 0.0
+) -> dict
+```
+
+**Parámetros de track:**
+```python
+{
+    "type": "value",          # "value" | "method" | "bezier" | "audio"
+    "path": "Node:property",  # NodePath al nodo y propiedad
+    "keys": [                 # Lista de keyframes
+        {
+            "time": 0.0,
+            "value": 100.0,
+            "transition": 1.0,
+        },
+    ],
+}
+```
+
+**Ejemplo - Animación de posición:**
+```python
+create_animation(
+    session_id=session_id,
+    scene_path="player.tscn",
+    name="walk",
+    length=1.0,
+    tracks=[{
+        "type": "value",
+        "path": "Sprite2D:position",
+        "keys": [
+            {"time": 0.0, "value": {"type": "Vector2", "x": 0, "y": 0}},
+            {"time": 0.5, "value": {"type": "Vector2", "x": 10, "y": -5}},
+            {"time": 1.0, "value": {"type": "Vector2", "x": 0, "y": 0}},
+        ],
+    }],
+)
+```
+
+#### `create_state_machine`
+
+Crea un `AnimationNodeStateMachine` con estados y transiciones.
+
+```python
+create_state_machine(
+    session_id: str,
+    scene_path: str,
+    name: str,
+    states: list,
+    transitions: list = None,
+    state_machine_type: int = 0
+) -> dict
+```
+
+**Parámetros de estado:**
+```python
+{
+    "name": "walk",
+    "node_type": "AnimationNodeAnimation",  # Opcional
+    "node_properties": {"animation": &"Walk"},  # Opcional
+    "position": {"type": "Vector2", "x": 0, "y": 0},  # Posición en el editor
+}
+```
+
+**Parámetros de transición:**
+```python
+{
+    "from": "idle",
+    "to": "walk",
+    "switch_mode": 0,       # 0=immediate, 1=sync, 2=at_end
+    "xfade_time": 0.0,
+    "advance_mode": 1,      # 1=auto
+    "reset": True,
+    "priority": 1,
+}
+```
+
+> **Nota:** Las transiciones se serializan en formato triplete de Godot:
+> `["idle", "walk", SubResource("trans_idle_walk"), "walk", "run", SubResource("trans_walk_run")]`
+
+**Ejemplo:**
+```python
+create_state_machine(
+    session_id=session_id,
+    scene_path="player.tscn",
+    name="player_states",
+    states=[
+        {"name": "idle", "node_properties": {"animation": &"Idle"}},
+        {"name": "walk", "node_properties": {"animation": &"Walk"}},
+        {"name": "attack", "node_properties": {"animation": &"Attack"}},
+    ],
+    transitions=[
+        {"from": "idle", "to": "walk"},
+        {"from": "walk", "to": "idle"},
+        {"from": "idle", "to": "attack", "switch_mode": 2},
+    ],
+)
+```
+
+---
+
+### Capa 7.3: AnimationTree Helpers
+
+#### `create_blend_space_1d`
+
+Crea un `AnimationNodeBlendSpace1D` para mezclar animaciones en un eje (ej: idle→walk→run).
+
+```python
+create_blend_space_1d(
+    session_id: str,
+    scene_path: str,
+    name: str,
+    blend_points: list,
+    blend_mode: int = 0,
+    min_space: float = 0.0,
+    max_space: float = 1.0,
+    snap: float = 0.001
+) -> dict
+```
+
+**Parámetros de blend point:**
+```python
+{
+    "position": 0.5,
+    "animation": "Walk",    # Nombre de la animación
+}
+```
+
+**Ejemplo - Idle→Walk→Run:**
+```python
+create_blend_space_1d(
+    session_id=session_id,
+    scene_path="player.tscn",
+    name="movement_blend",
+    blend_points=[
+        {"position": 0.0, "animation": "Idle"},
+        {"position": 0.5, "animation": "Walk"},
+        {"position": 1.0, "animation": "Run"},
+    ],
+)
+```
+
+#### `create_blend_space_2d`
+
+Crea un `AnimationNodeBlendSpace2D` para mezclar animaciones en 2 ejes (ej: direcciones 4-way).
+
+```python
+create_blend_space_2d(
+    session_id: str,
+    scene_path: str,
+    name: str,
+    blend_points: list,
+    blend_mode: int = 0,
+    min_space: dict = None,   # {"x": -1.0, "y": -1.0}
+    max_space: dict = None,   # {"x": 1.0, "y": 1.0}
+    snap: float = 0.001
+) -> dict
+```
+
+**Parámetros de blend point:**
+```python
+{
+    "position": {"x": 0.0, "y": 1.0},
+    "animation": "Walk_Up",
+}
+```
+
+**Ejemplo - 4 direcciones:**
+```python
+create_blend_space_2d(
+    session_id=session_id,
+    scene_path="player.tscn",
+    name="direction_blend",
+    blend_points=[
+        {"position": {"x": 0.0, "y": 1.0}, "animation": "Walk_Up"},
+        {"position": {"x": 0.0, "y": -1.0}, "animation": "Walk_Down"},
+        {"position": {"x": -1.0, "y": 0.0}, "animation": "Walk_Left"},
+        {"position": {"x": 1.0, "y": 0.0}, "animation": "Walk_Right"},
+    ],
+)
+```
+
+#### `create_blend_tree`
+
+Crea un `AnimationNodeBlendTree` con nodos y conexiones.
+
+```python
+create_blend_tree(
+    session_id: str,
+    scene_path: str,
+    name: str,
+    nodes: list,
+    connections: list = None
+) -> dict
+```
+
+**Parámetros de nodo:**
+```python
+{
+    "name": "blend",
+    "type": "AnimationNodeBlend2",
+    "position": {"x": 200, "y": 0},
+    "properties": {"blend_amount": 0.5},
+}
+```
+
+**Parámetros de conexión:**
+```python
+{
+    "from_node": "output",
+    "from_port": 0,
+    "to_node": "blend",
+    "to_port": 0,
+}
+```
+
+**Ejemplo - Blend2 con Animation:**
+```python
+create_blend_tree(
+    session_id=session_id,
+    scene_path="player.tscn",
+    name="combat_blend",
+    nodes=[
+        {"name": "idle_anim", "type": "AnimationNodeAnimation",
+         "position": {"x": 0, "y": 0},
+         "properties": {"animation": &"Idle"}},
+        {"name": "attack_anim", "type": "AnimationNodeAnimation",
+         "position": {"x": 0, "y": 100},
+         "properties": {"animation": &"Attack"}},
+        {"name": "blend", "type": "AnimationNodeBlend2",
+         "position": {"x": 200, "y": 50}},
+    ],
+    connections=[
+        {"from_node": "idle_anim", "from_port": 0, "to_node": "blend", "to_port": 0},
+        {"from_node": "attack_anim", "from_port": 0, "to_node": "blend", "to_port": 1},
+    ],
+)
+```
+
+---
+
+### Capa 7.4: Asset Helpers
+
+#### `create_sprite_frames`
+
+Crea un recurso `SpriteFrames` con animaciones frame-by-frame.
+
+```python
+create_sprite_frames(
+    session_id: str,
+    scene_path: str,
+    name: str,
+    animations: list,
+    resource_id: str = None
+) -> dict
+```
+
+**Parámetros de animación:**
+```python
+{
+    "name": "idle",
+    "speed": 5.0,
+    "loop": True,
+    "frames": [
+        {
+            "texture": "res://sprites/player_idle_01.png",
+            "hframes": 1,
+            "vframes": 1,
+            "frame": {"x": 0, "y": 0},
+            "duration": 0.1,
+        },
+    ],
+}
+```
+
+**Ejemplo:**
+```python
+create_sprite_frames(
+    session_id=session_id,
+    scene_path="player.tscn",
+    name="player_frames",
+    animations=[
+        {
+            "name": "idle",
+            "speed": 5.0,
+            "loop": True,
+            "frames": [
+                {"texture": "res://sprites/player_idle_01.png", "duration": 0.1},
+                {"texture": "res://sprites/player_idle_02.png", "duration": 0.1},
+            ],
+        },
+        {
+            "name": "walk",
+            "speed": 8.0,
+            "loop": True,
+            "frames": [
+                {"texture": "res://sprites/player_walk_01.png", "duration": 0.08},
+                {"texture": "res://sprites/player_walk_02.png", "duration": 0.08},
+                {"texture": "res://sprites/player_walk_03.png", "duration": 0.08},
+            ],
+        },
+    ],
+)
+```
+
+#### `create_tile_set`
+
+Crea un recurso `TileSet` con atlas de tiles y capas de colisión.
+
+```python
+create_tile_set(
+    session_id: str,
+    scene_path: str,
+    name: str,
+    tile_size: dict,
+    atlas: str,
+    tiles: list = None,
+    resource_id: str = None
+) -> dict
+```
+
+**Parámetros de tile:**
+```python
+{
+    "id": 0,
+    "texture_rect": {"x": 0, "y": 0, "w": 16, "h": 16},
+    "collision": [  # Opcional: puntos del polígono de colisión
+        {"x": 0, "y": 0},
+        {"x": 16, "y": 0},
+        {"x": 16, "y": 16},
+        {"x": 0, "y": 16},
+    ],
+}
+```
+
+**Ejemplo:**
+```python
+create_tile_set(
+    session_id=session_id,
+    scene_path="level.tscn",
+    name="ground_tiles",
+    tile_size={"x": 16, "y": 16},
+    atlas="res://tiles/ground_atlas.png",
+    tiles=[
+        {
+            "id": 0,
+            "texture_rect": {"x": 0, "y": 0, "w": 16, "h": 16},
+            "collision": [
+                {"x": 0, "y": 0}, {"x": 16, "y": 0},
+                {"x": 16, "y": 16}, {"x": 0, "y": 16},
+            ],
+        },
+        {"id": 1, "texture_rect": {"x": 16, "y": 0, "w": 16, "h": 16}},
+    ],
+)
+```
+
+---
+
+*Documento de herramientas v4.3.0*
+*Fecha: 2026-04-23*
+*Total: 98 herramientas*

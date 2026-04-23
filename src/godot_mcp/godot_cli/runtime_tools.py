@@ -296,9 +296,9 @@ def run_gdscript(
     """
     cli = GodotCLIWrapper(godot_path)
     
-    valid = cli.validate_project(project_path)
-    if not valid["valid"]:
-        return {"success": False, "error": valid["error"]}
+    is_valid, error = cli.validate_project(project_path)
+    if not is_valid:
+        return {"success": False, "error": error}
     
     result = cli.run_script(script_content, project_path=project_path, timeout=timeout)
     

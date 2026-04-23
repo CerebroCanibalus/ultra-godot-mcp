@@ -713,11 +713,21 @@ def _parse_gdscript_value(value_str: str) -> Any:
         ref = value_str[10:-2]  # Remove NodePath(" and ")
         return {"type": "NodePath", "ref": ref}
 
+    # Handle StringName &"name"
+    if value_str.startswith('&"') and value_str.endswith('"'):
+        return value_str  # Keep as-is (StringName literal)
+
     # Handle Vector2(x, y)
     if value_str.startswith("Vector2(") and value_str.endswith(")"):
         inner = value_str[8:-1]
         parts = inner.split(", ")
         return {"type": "Vector2", "x": float(parts[0]), "y": float(parts[1])}
+
+    # Handle Vector2i(x, y)
+    if value_str.startswith("Vector2i(") and value_str.endswith(")"):
+        inner = value_str[9:-1]
+        parts = inner.split(", ")
+        return {"type": "Vector2i", "x": int(parts[0]), "y": int(parts[1])}
 
     # Handle Vector3(x, y, z)
     if value_str.startswith("Vector3(") and value_str.endswith(")"):
@@ -728,6 +738,17 @@ def _parse_gdscript_value(value_str: str) -> Any:
             "x": float(parts[0]),
             "y": float(parts[1]),
             "z": float(parts[2]),
+        }
+
+    # Handle Vector3i(x, y, z)
+    if value_str.startswith("Vector3i(") and value_str.endswith(")"):
+        inner = value_str[9:-1]
+        parts = inner.split(", ")
+        return {
+            "type": "Vector3i",
+            "x": int(parts[0]),
+            "y": int(parts[1]),
+            "z": int(parts[2]),
         }
 
     # Handle Vector4(x, y, z, w)
@@ -1004,6 +1025,9 @@ def _format_gdscript_value(value: Any) -> str:
             return stripped
         if stripped.startswith('NodePath("') and stripped.endswith('")'):
             return stripped
+        # StringName literal: &"name"
+        if stripped.startswith('&"') and stripped.endswith('"'):
+            return stripped
         # Also check for malformed references (with extra quotes)
         if (
             'ExtResource("' in stripped
@@ -1040,8 +1064,12 @@ def _format_gdscript_value(value: Any) -> str:
             return f'NodePath("{ref_id}")'
         if value.get("type") == "Vector2":
             return f"Vector2({value.get('x', 0)}, {value.get('y', 0)})"
+        if value.get("type") == "Vector2i":
+            return f"Vector2i({value.get('x', 0)}, {value.get('y', 0)})"
         if value.get("type") == "Vector3":
             return f"Vector3({value.get('x', 0)}, {value.get('y', 0)}, {value.get('z', 0)})"
+        if value.get("type") == "Vector3i":
+            return f"Vector3i({value.get('x', 0)}, {value.get('y', 0)}, {value.get('z', 0)})"
         if value.get("type") == "Vector4":
             return f"Vector4({value.get('x', 0)}, {value.get('y', 0)}, {value.get('z', 0)}, {value.get('w', 0)})"
         if value.get("type") == "Color":
@@ -1055,6 +1083,8 @@ def _format_gdscript_value(value: Any) -> str:
             return f"Color({', '.join(parts)})"
         if value.get("type") == "Rect2":
             return f"Rect2({value.get('x', 0)}, {value.get('y', 0)}, {value.get('width', 0)}, {value.get('height', 0)})"
+        if value.get("type") == "Rect2i":
+            return f"Rect2i({value.get('x', 0)}, {value.get('y', 0)}, {value.get('width', 0)}, {value.get('height', 0)})"
         if value.get("type") == "Array":
             items = [_format_gdscript_value(i) for i in value.get("items", [])]
             array_type = value.get("array_type")
@@ -1068,8 +1098,14 @@ def _format_gdscript_value(value: Any) -> str:
             }
             pairs = [f'"{k}": {v}' for k, v in items.items()]
             return f"{{{', '.join(pairs)}}}"
-        # Generic dict
-        return str(value)
+        # Generic dict → serialize as GDScript dictionary
+        # This handles Animation track keys, state machine states, etc.
+        pairs = []
+        for k, v in value.items():
+            formatted_k = f'"{k}"' if isinstance(k, str) else str(k)
+            formatted_v = _format_gdscript_value(v)
+            pairs.append(f'{formatted_k}: {formatted_v}')
+        return f"{{{', '.join(pairs)}}}"
 
     if isinstance(value, list):
         items = [_format_gdscript_value(i) for i in value]

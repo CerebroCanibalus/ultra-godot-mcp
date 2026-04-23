@@ -50,6 +50,8 @@ REGISTERED_MODULES: List[Tuple[str, str]] = [
     ("tools.skeleton_tools", "register_skeleton_tools"),
     # Capa 6: Array Operations (v4.2.0)
     ("tools.array_tools", "register_array_tools"),
+    # Capa 7: Resource Builder (v4.3.0)
+    ("tools.resource_builder_tools", "register_resource_builder_tools"),
 ]
 
 

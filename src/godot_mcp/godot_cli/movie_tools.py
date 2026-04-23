@@ -57,9 +57,9 @@ def write_movie(
     """
     cli = GodotCLIWrapper(godot_path)
     
-    valid = cli.validate_project(project_path)
-    if not valid["valid"]:
-        return {"success": False, "error": valid["error"]}
+    is_valid, error = cli.validate_project(project_path)
+    if not is_valid:
+        return {"success": False, "error": error}
     
     # Setup output directory
     output_dir = os.path.dirname(output_path)
@@ -161,9 +161,9 @@ def write_movie_with_script(
     """
     cli = GodotCLIWrapper(godot_path)
     
-    valid = cli.validate_project(project_path)
-    if not valid["valid"]:
-        return {"success": False, "error": valid["error"]}
+    is_valid, error = cli.validate_project(project_path)
+    if not is_valid:
+        return {"success": False, "error": error}
     
     # Build a script that loads the scene, applies setup, then records
     setup_code = setup_script if setup_script else ""

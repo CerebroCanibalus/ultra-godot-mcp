@@ -85,9 +85,9 @@ def export_project(
     cli = GodotCLIWrapper(godot_path)
     
     # Validate project
-    valid = cli.validate_project(project_path)
-    if not valid["valid"]:
-        return {"success": False, "error": valid["error"]}
+    is_valid, error = cli.validate_project(project_path)
+    if not is_valid:
+        return {"success": False, "error": error}
     
     # Build export command
     export_flags = {

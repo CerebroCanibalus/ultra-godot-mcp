@@ -6,6 +6,37 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 
 ---
 
+## [4.3.0] - 2026-04-23 - Resource Builder
+
+### Añadido - Capa 7: Resource Builder (9 tools)
+- **`tools/resource_builder_tools.py`** - Sistema genérico de construcción de SubResources complejos
+- **Capa 1 (Genéricos):** `build_resource` (cualquier SubResource), `build_nested_resource` (jerarquías con referencias cruzadas)
+- **Capa 3 (High-level):** `create_animation` (Animation con tracks), `create_state_machine` (AnimationNodeStateMachine con transiciones en tripletes)
+- **Capa 4 (AnimationTree):** `create_blend_space_1d`, `create_blend_space_2d`, `create_blend_tree`
+- **Capa 5 (Assets):** `create_sprite_frames` (animaciones frame-by-frame), `create_tile_set` (atlas + colisiones)
+- Parser de `StringName` (`&"nombre"`) en `tscn_parser.py`
+- Soporte `Vector2i`, `Vector3i`, `Rect2i` en parser y formatter
+- Serialización correcta de dicts genéricos como GDScript dictionaries
+
+### Añadido - Capa 6: Array Operations (2 tools)
+- **`tools/array_tools.py`** - Operaciones quirúrgicas sobre arrays sin reescribir escenas
+- `scene_array_operation` (append, remove, replace, insert, clear)
+- `preview_array_operation` (previsualizar cambios antes de aplicar)
+
+### Corregido
+- **StateMachine transitions**: Formato real de Godot usa tripletes `[from, to, SubResource(transition)]`, no pares `[from, to]`. Corregido para coincidir con escenas reales (verificado contra Jellyboom.tscn)
+- **`validate_project` tuple bug**: 5 archivos (`runtime_tools.py`, `movie_tools.py`, `screenshot_tools.py`, `import_tools.py`, `export_tools.py`) trataban el retorno como dict en vez de tuple. Corregido
+- **`create_blend_tree` typo**: `conns` → `connections`
+- **`array_properties` en flattener**: Propiedades como `transitions` ahora se serializan como arrays planos, no como claves indexadas
+
+### Mejorado
+- **98 herramientas totales** (87 anteriores + 11 nuevas)
+- **22 módulos registrados** en server.py
+- Validación de formato TSCN contra escenas reales del proyecto Devil's Kitchen
+- Zero modificaciones al juego durante validaciones (solo lectura)
+
+---
+
 ## [4.0.0] - 2026-04-22 - Plus Ultra
 
 ### Añadido - Godot CLI Bridge (16 tools)
