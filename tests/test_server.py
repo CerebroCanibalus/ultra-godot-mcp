@@ -38,6 +38,9 @@ EXPECTED_SCENE_TOOLS = {
     "list_scenes",
     "instantiate_scene",
     "modify_scene",
+    "set_editable_paths",
+    "remove_ext_resource",
+    "remove_sub_resource",
 }
 
 EXPECTED_NODE_TOOLS = {
@@ -50,6 +53,8 @@ EXPECTED_NODE_TOOLS = {
     "move_node",
     "duplicate_node",
     "find_nodes",
+    "add_node_groups",
+    "remove_node_groups",
 }
 
 EXPECTED_RESOURCE_TOOLS = {
@@ -87,6 +92,8 @@ EXPECTED_VALIDATION_TOOLS = {
 
 EXPECTED_SIGNAL_SCRIPT_TOOLS = {
     "connect_signal",
+    "disconnect_signal",
+    "list_signals",
     "set_script",
     "add_sub_resource",
 }
@@ -166,6 +173,32 @@ EXPECTED_CODE_ANALYSIS_TOOLS = {
     "get_project_metrics",
 }
 
+EXPECTED_SKELETON_TOOLS = {
+    "create_skeleton2d",
+    "add_bone2d",
+    "setup_polygon2d_skinning",
+    "create_skeleton3d",
+    "add_bone_attachment3d",
+    "setup_mesh_skinning",
+}
+
+EXPECTED_ARRAY_TOOLS = {
+    "scene_array_operation",
+    "preview_array_operation",
+}
+
+EXPECTED_RESOURCE_BUILDER_TOOLS = {
+    "build_resource",
+    "build_nested_resource",
+    "create_animation",
+    "create_state_machine",
+    "create_blend_space_1d",
+    "create_blend_space_2d",
+    "create_blend_tree",
+    "create_sprite_frames",
+    "create_tile_set",
+}
+
 ALL_EXPECTED_TOOLS = (
     EXPECTED_SCENE_TOOLS
     | EXPECTED_NODE_TOOLS
@@ -186,6 +219,9 @@ ALL_EXPECTED_TOOLS = (
     | EXPECTED_DEPENDENCY_TOOLS
     | EXPECTED_SIGNAL_GRAPH_TOOLS
     | EXPECTED_CODE_ANALYSIS_TOOLS
+    | EXPECTED_SKELETON_TOOLS
+    | EXPECTED_ARRAY_TOOLS
+    | EXPECTED_RESOURCE_BUILDER_TOOLS
 )
 
 

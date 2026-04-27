@@ -565,6 +565,125 @@ cache.set("states:Attack", new_state)
 
 ---
 
+## 🆕 Nuevas Herramientas MCP (v4.1.0)
+
+Las siguientes herramientas fueron añadidas para soportar funcionalidades avanzadas de Godot 4.x:
+
+### Escenas Heredadas (`create_scene` con `inherits`)
+
+Crear escenas que heredan de otra escena base:
+
+```python
+create_scene(
+    project_path="D:/MyGame",
+    scene_path="scenes/PlayerExtended.tscn",
+    inherits="res://scenes/BasePlayer.tscn"
+)
+```
+
+Genera `[gd_scene load_steps=2 format=3 inherits="res://scenes/BasePlayer.tscn"]` sin nodo root.
+
+### Instanciación con Editable Children (`instantiate_scene`)
+
+Instanciar una escena con `editable_children=True` para permitir modificar hijos en el editor:
+
+```python
+instantiate_scene(
+    scene_path="res://scenes/Enemy.tscn",
+    parent_scene_path="res://scenes/Level.tscn",
+    node_name="Enemy1",
+    editable_children=True  # Genera [editable path="Enemy1"]
+)
+```
+
+### Gestión de Grupos (`add_node_groups`, `remove_node_groups`)
+
+```python
+# Añadir grupos
+add_node_groups(
+    scene_path="res://scenes/Player.tscn",
+    node_path="Player",
+    groups=["player", "damageable"]
+)
+
+# Eliminar grupos
+remove_node_groups(
+    scene_path="res://scenes/Player.tscn",
+    node_path="Player",
+    groups=["damageable"]
+)
+```
+
+### Señales (`connect_signal`, `disconnect_signal`, `list_signals`)
+
+```python
+# Conectar
+connect_signal(
+    scene_path="res://scenes/Player.tscn",
+    from_node="Player/Area2D",
+    signal="body_entered",
+    to_node="Player",
+    method="_on_area_body_entered"
+)
+
+# Listar
+list_signals(scene_path="res://scenes/Player.tscn")
+
+# Desconectar
+disconnect_signal(
+    scene_path="res://scenes/Player.tscn",
+    from_node="Player/Area2D",
+    signal="body_entered",
+    to_node="Player",
+    method="_on_area_body_entered"
+)
+```
+
+### Eliminación de Recursos (`remove_ext_resource`, `remove_sub_resource`)
+
+```python
+# Eliminar ExtResource huérfano
+remove_ext_resource(
+    scene_path="res://scenes/Player.tscn",
+    resource_id="5"
+)
+
+# Eliminar SubResource huérfano
+remove_sub_resource(
+    scene_path="res://scenes/Player.tscn",
+    resource_id="GradientTexture2D_abc123"
+)
+```
+
+### Editable Paths (`set_editable_paths`)
+
+Marcar hijos de instancias como editables manualmente:
+
+```python
+set_editable_paths(
+    scene_path="res://scenes/Level.tscn",
+    paths=["Kitchen", "Kitchen/Door", "Kitchen/Entities/Table"]
+)
+```
+
+### Atributos de Nodo Adicionales
+
+`add_node` e `instantiate_scene` ahora soportan:
+- `unique_name_in_owner=True` → Referenciable con `%Name` en GDScript
+- `owner="NodePath"` → Sistema de ownership de Godot
+
+```python
+add_node(
+    scene_path="res://scenes/Player.tscn",
+    parent_path=".",
+    node_type="Area2D",
+    node_name="Hitbox",
+    unique_name_in_owner=True
+)
+```
+
+---
+
 ## 📖 Glosario
 
 | Término | Definición |
@@ -587,5 +706,5 @@ cache.set("states:Attack", new_state)
 
 ---
 
-*Última actualización: 2026-04-12*
-*Versión del documento: 1.0*
+*Última actualización: 2026-04-26*
+*Versión del documento: 1.1*

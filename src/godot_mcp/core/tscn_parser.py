@@ -19,16 +19,21 @@ class SectionType(Enum):
     SUB_RESOURCE = "sub_resource"
     NODE = "node"
     CONNECT = "connection"
+    EDITABLE = "editable"
 
 
 @dataclass
 class GdSceneHeader:
-    """Header section [gd_scene]"""
+    """Header section [gd_scene]
+    
+    Supports inherited scenes with the 'inherits' attribute (Godot 4.x).
+    """
 
     load_steps: int = 0
     format: int = 3
     uid: str = ""
     scene_unique_name: str = ""
+    inherits: str = ""  # Path to base scene for inherited scenes
 
     def to_dict(self) -> dict:
         result = {
@@ -39,6 +44,8 @@ class GdSceneHeader:
             result["uid"] = self.uid
         if self.scene_unique_name:
             result["scene_unique_name"] = self.scene_unique_name
+        if self.inherits:
+            result["inherits"] = self.inherits
         return result
 
     def to_tscn(self) -> str:
@@ -47,6 +54,8 @@ class GdSceneHeader:
             parts.append(f'uid="{self.uid}"')
         if self.scene_unique_name:
             parts.append(f'scene_unique_name="{self.scene_unique_name}"')
+        if self.inherits:
+            parts.append(f'inherits="{self.inherits}"')
         return f"[gd_scene {' '.join(parts)}]"
 
 
@@ -152,8 +161,12 @@ class SceneNode:
         }
         return result
 
-    def to_tscn(self, is_root: bool = False) -> str:
+    def to_tscn(self, is_root: bool = False, scene: Optional["Scene"] = None) -> str:
         lines = []
+
+        # Generate unique_id if missing (new nodes)
+        if self.unique_id <= 0:
+            self.unique_id = _generate_unique_id()
 
         # Node header
         header_parts = []
@@ -164,6 +177,12 @@ class SceneNode:
         # Root node MUST NOT have a parent attribute (Godot rejects it)
         if self.parent and not is_root:
             header_parts.append(f'parent="{self.parent}"')
+            # Calculate parent_id_path from unique_ids (Godot 4.6+ format)
+            if scene:
+                parent_id_path = _build_parent_id_path(scene, self.parent)
+                if parent_id_path:
+                    ids_str = ", ".join(str(uid) for uid in parent_id_path)
+                    header_parts.append(f"parent_id_path=PackedInt32Array({ids_str})")
         if self.unique_name_in_owner:
             header_parts.append("unique_name_in_owner=true")
         # Instance attribute for scene instantiation (Godot format)
@@ -183,7 +202,7 @@ class SceneNode:
             header_parts.append(f'owner="{self.owner}"')
         # groups
         if self.groups:
-            header_parts.append(f'groups={self.groups}')
+            header_parts.append(f'groups={_format_gdscript_value(self.groups)}')
         # Unknown fields (forward compatibility)
         for key, value in self._unknown_fields.items():
             if isinstance(value, bool):
@@ -241,6 +260,19 @@ class Connection:
 
 
 @dataclass
+class EditablePath:
+    """Editable child path declaration [editable path=\"...\"]"""
+
+    path: str = ""
+
+    def to_dict(self) -> dict:
+        return {"path": self.path}
+
+    def to_tscn(self) -> str:
+        return f'[editable path="{self.path}"]'
+
+
+@dataclass
 class Scene:
     """Complete parsed TSCN scene"""
 
@@ -249,6 +281,7 @@ class Scene:
     sub_resources: list[SubResource] = field(default_factory=list)
     nodes: list[SceneNode] = field(default_factory=list)
     connections: list[Connection] = field(default_factory=list)
+    editable_paths: list[EditablePath] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -257,6 +290,7 @@ class Scene:
             "sub_resources": [r.to_dict() for r in self.sub_resources],
             "nodes": [n.to_dict() for n in self.nodes],
             "connections": [c.to_dict() for c in self.connections],
+            "editable_paths": [e.to_dict() for e in self.editable_paths],
         }
 
     def to_tscn(self) -> str:
@@ -287,12 +321,16 @@ class Scene:
         # Nodes
         for i, node in enumerate(self.nodes):
             is_root = i == 0
-            lines.append(node.to_tscn(is_root=is_root))
+            lines.append(node.to_tscn(is_root=is_root, scene=self))
             lines.append("")
 
         # Connections
         for conn in self.connections:
             lines.append(conn.to_tscn())
+
+        # Editable paths (Godot 4.x format for editable children)
+        for editable in self.editable_paths:
+            lines.append(editable.to_tscn())
 
         # Remove trailing empty lines but keep structure
         while lines and lines[-1] == "":
@@ -621,7 +659,30 @@ def _parse_node_header(line: str) -> dict:
         "_unknown_fields": {},
     }
 
-    content = line.strip().strip("[]")
+    content = line.strip()
+    # strip("[]") is too aggressive - it removes ALL [ and ] from ends,
+    # which breaks groups=["a", "b"] by eating the closing ].
+    # Only strip the outermost [ and ].
+    if content.startswith("["):
+        content = content[1:]
+    if content.endswith("]"):
+        content = content[:-1]
+
+    # Handle groups specially (value may contain spaces: groups=["a", "b"])
+    groups_match = re.search(r'groups=\[([^\]]*)\]', content)
+    if groups_match:
+        groups_value = "[" + groups_match.group(1) + "]"
+        try:
+            parsed = _parse_gdscript_value(groups_value)
+            # _parse_gdscript_value returns dict for Array type
+            if isinstance(parsed, dict) and parsed.get("type") == "Array":
+                result["groups"] = parsed.get("items", [])
+            else:
+                result["groups"] = parsed
+        except Exception:
+            result["groups"] = []
+        # Remove groups from content to avoid double-parsing by regex
+        content = re.sub(r'groups=\[([^\]]*)\]', '', content)
 
     # Use regex to match key="value" or key=value patterns
     pattern = r'(\w+)="([^"]*)"|(\w+)=(\S+)'
@@ -1114,6 +1175,58 @@ def _format_gdscript_value(value: Any) -> str:
     return str(value)
 
 
+def _generate_unique_id() -> int:
+    """Generate a stable random unique_id (Godot 4.6+ scene-local ID).
+    
+    Godot uses random 32-bit integers. We generate them in the range
+    1000000000-4294967295 to match the 10-digit format seen in real scenes.
+    """
+    import random
+    return random.randint(1_000_000_000, 4_294_967_295)
+
+
+def _build_parent_id_path(scene: "Scene", parent_path: str) -> list[int] | None:
+    """Build a PackedInt32Array of unique_ids from root to the given parent.
+    
+    Traverses the node hierarchy using parent references to build the path.
+    Supports multi-level paths like "Kitchen/Entities".
+    Returns None if the parent is '.' (root) or if any node lacks unique_id.
+    """
+    if parent_path == "." or not parent_path:
+        return None
+    
+    # Build name -> node lookup
+    name_to_node = {n.name: n for n in scene.nodes}
+    
+    # Build path from parent to root
+    path_ids = []
+    current = parent_path
+    visited = set()
+    
+    while current and current != ".":
+        if current in visited:
+            break  # Circular reference protection
+        visited.add(current)
+        
+        # Handle multi-level paths: get the last component
+        if "/" in current:
+            node_name = current.split("/")[-1]
+        else:
+            node_name = current
+        
+        node = name_to_node.get(node_name)
+        if not node:
+            return None
+        if node.unique_id <= 0:
+            return None
+        path_ids.append(node.unique_id)
+        current = node.parent
+    
+    # Reverse to get root -> leaf order
+    path_ids.reverse()
+    return path_ids
+
+
 def _detect_section_type(line: str) -> Optional[SectionType]:
     """Detect which section type a line represents"""
     line = line.strip()
@@ -1131,6 +1244,8 @@ def _detect_section_type(line: str) -> Optional[SectionType]:
             return SectionType.NODE
         elif content == "connection":
             return SectionType.CONNECT
+        elif content == "editable":
+            return SectionType.EDITABLE
 
     return None
 
@@ -1172,6 +1287,7 @@ def parse_tscn_string(content: str) -> Scene:
                 format=data.get("format", 3),
                 uid=data.get("uid", ""),
                 scene_unique_name=data.get("scene_unique_name", ""),
+                inherits=data.get("inherits", ""),
             )
 
         elif section == SectionType.EXT_RESOURCE:
@@ -1237,6 +1353,15 @@ def parse_tscn_string(content: str) -> Scene:
             if current_conn:
                 scene.connections.append(current_conn)
             current_conn = None
+
+        elif section == SectionType.EDITABLE:
+            # Parse [editable path="..."] line
+            # Extract path="..." value
+            import re
+            match = re.search(r'path="([^"]*)"', line)
+            if match:
+                scene.editable_paths.append(EditablePath(path=match.group(1)))
+            current_section = None
 
         # Property line (not a section header)
         elif _is_property_line(line):

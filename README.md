@@ -3,7 +3,7 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Godot 4.6+](https://img.shields.io/badge/Godot-4.6+-478cbf?logo=godotengine&logoColor=white)](https://godotengine.org/)
 [![Tests](https://img.shields.io/badge/Tests-496%20passing-2ea44f)](docs/TESTS.md)
-[![Version](https://img.shields.io/badge/Version-4.3.0-6f42c1)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-4.4.0-6f42c1)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > *"La técnica es una actividad compositora o destructora, violenta, y esto es lo que Aristóteles llamaba la poiesis, la poesía, precisamente."* — Gustavo Bueno
@@ -19,7 +19,7 @@ Servidor MCP para Godot Engine que permite a IAs y asistentes controlar proyecto
 | Característica | Descripción |
 |---|---|
 | 🔍 **Parsing nativo TSCN** | Lee y escribe archivos `.tscn` directamente, sin Godot headless |
-| 🛠️ **98 herramientas** | 7 capas: Core (42) + CLI Bridge (16) + LSP/DAP (10) + Intelligence (7) + Skeleton (6) + Array Ops (2) + Resource Builder (9) |
+| 🛠️ **99 herramientas** | 7 capas: Core (45) + CLI Bridge (16) + LSP/DAP (10) + Intelligence (7) + Skeleton (6) + Array Ops (2) + Resource Builder (9) |
 | 🎯 **Inspector unificado** | `set_node_properties` maneja TODOS los tipos de propiedad automáticamente |
 | 🔄 **Sesiones en memoria** | Workspace con dirty tracking, lazy loading y cache LRU |
 | ⚡ **Godot headless persistente** | Proceso Godot corriendo en background por sesión (10x más rápido) |
@@ -52,7 +52,7 @@ La diferencia principal: otros MCPs lanzan `godot --headless --script` por cada 
 
 | Dimensión | [godot-mcp](https://github.com/Coding-Solo/godot-mcp) | [GoPeak](https://github.com/GoD0Yun/Gopeak-godot-mcp) | [GodotIQ](https://godotiq.com) | **Ultra Godot MCP** |
 |---|---|---|---|---|
-| **Herramientas** | ~15 | 110+ | 36 (22 free + 14 Pro) | **98** |
+| **Herramientas** | ~15 | 110+ | 36 (22 free + 14 Pro) | **99** |
 | **Precio** | Gratis | Gratis (MIT) | $19 Pro | **Gratis (MIT)** |
 | **Addon requerido** | ❌ | ✅ (GDScript) | ✅ (18/22 tools) | **❌ Zero addon** |
 | **WebSocket** | ❌ | ✅ (4 puertos) | ✅ (puerto 6007) | **❌ Zero WebSocket** |
@@ -76,7 +76,7 @@ La diferencia principal: otros MCPs lanzan `godot --headless --script` por cada 
 | **Docs en español** | ❌ | ❌ | ❌ | **✅** |
 | **Instalación** | `npx` (npm) | `npx` (npm) | `pip` (Python) | **`pip` (Python)** |
 
-> **Nota:** GoPeak tiene más herramientas en número (110+), pero requiere addon GDScript + WebSocket + 4 puertos. Ultra Godot MCP prioriza **zero-config**: 98 herramientas que funcionan sin tocar tu proyecto Godot.
+> **Nota:** GoPeak tiene más herramientas en número (110+), pero requiere addon GDScript + WebSocket + 4 puertos. Ultra Godot MCP prioriza **zero-config**: 99 herramientas que funcionan sin tocar tu proyecto Godot.
 
 ### Comparativa de funcionalidades
 
@@ -207,7 +207,7 @@ El LSP (Language Server Protocol) y DAP (Debug Adapter Protocol) son **features 
 
 ## 🛠️ Herramientas
 
-### Capa 1: Core (42 tools) — Sin Godot
+### Capa 1: Core (45 tools) — Sin Godot
 
 #### Sesión
 | Herramienta | Descripción |
@@ -223,17 +223,20 @@ El LSP (Language Server Protocol) y DAP (Debug Adapter Protocol) son **features 
 #### Escenas
 | Herramienta | Descripción |
 |---|---|
-| `create_scene` | Crear nueva escena `.tscn` |
+| `create_scene` | Crear nueva escena `.tscn` (soporta `inherits` para escenas heredadas) |
 | `get_scene_tree` | Obtener jerarquía completa de nodos |
 | `save_scene` | Guardar escena a disco |
 | `list_scenes` | Listar todas las escenas del proyecto |
-| `instantiate_scene` | Instanciar una escena como nodo hijo |
+| `instantiate_scene` | Instanciar una escena como nodo hijo (soporta `editable_children`) |
 | `modify_scene` | Modificar tipo/nombre del root de una escena |
+| `set_editable_paths` | Marcar hijos de instancias como editables (Godot 4.x) |
+| `remove_ext_resource` | Eliminar ExtResource huérfano |
+| `remove_sub_resource` | Eliminar SubResource huérfano |
 
 #### Nodos
 | Herramienta | Descripción |
 |---|---|
-| `add_node` | Añadir nodo a una escena |
+| `add_node` | Añadir nodo (soporta `unique_name_in_owner`, `owner`) |
 | `remove_node` | Eliminar nodo |
 | `update_node` | Actualizar propiedades de un nodo |
 | `rename_node` | Renombrar nodo |
@@ -241,6 +244,8 @@ El LSP (Language Server Protocol) y DAP (Debug Adapter Protocol) son **features 
 | `duplicate_node` | Duplicar nodo y sus hijos |
 | `find_nodes` | Buscar nodos por nombre o tipo (con fuzzy matching) |
 | `get_node_properties` | Obtener todas las propiedades de un nodo |
+| `add_node_groups` | Añadir grupos a un nodo |
+| `remove_node_groups` | Eliminar grupos de un nodo |
 
 #### 🔥 Inspector Unificado
 
@@ -276,7 +281,9 @@ Maneja **automáticamente** todos los tipos:
 | Herramienta | Descripción |
 |---|---|
 | `set_script` | Adjuntar script `.gd` a un nodo |
-| `connect_signal` | Conectar señal entre nodos |
+| `connect_signal` | Conectar señal (valida métodos en scripts) |
+| `disconnect_signal` | Desconectar señal |
+| `list_signals` | Listar todas las conexiones de señales |
 
 #### Proyecto
 | Herramienta | Descripción |
@@ -437,7 +444,7 @@ Maneja **automáticamente** todos los tipos:
 
 | Documento | Contenido |
 |---|---|
-| [TOOLS.md](docs/TOOLS.md) | Referencia completa de las 98 herramientas |
+| [TOOLS.md](docs/TOOLS.md) | Referencia completa de las 99 herramientas |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Diseño interno, sesiones y cache |
 | [ARCHITECTURE_v4.md](docs/ARCHITECTURE_v4.md) | Arquitectura v4.0.0 (4 capas) |
 | [CLEANUP_v4.md](docs/CLEANUP_v4.md) | Análisis de limpieza e integración con sesiones |
@@ -456,7 +463,7 @@ pytest tests/e2e/          # Solo E2E
 pytest tests/test_server.py -v  # Tests específicos
 ```
 
-**Estado:** 496 tests pasando · 22 módulos registrados en v4.3.0
+**Estado:** 489 tests pasando · 22 módulos registrados en v4.4.0
 
 ---
 
