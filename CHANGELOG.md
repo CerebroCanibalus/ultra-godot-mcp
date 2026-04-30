@@ -6,6 +6,37 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 
 ---
 
+## [4.5.0] - 2026-04-30 - TileMap Tools
+
+### Añadido - Capa 8: TileMap Tools (7 tools)
+- **`tools/tilemap_tools.py`** - Herramientas avanzadas para TileMap y TileSet usando la API real de Godot
+- **`inspect_tileset`** - Inspeccionar TileSet: sources, tiles, atlas, terrain sets, patterns
+- **`inspect_tilemap`** - Inspeccionar TileMap/TileMapLayer: celdas usadas, bounds, layers
+- **`set_tilemap_cells`** - Setear o borrar celdas individuales (source_id + atlas_coords)
+- **`set_tilemap_layer_properties`** - Configurar layer: z_index, y_sort_enabled, modulate, etc.
+- **`apply_tilemap_terrain`** - Aplicar terrain set a un rango de celdas
+- **`create_tilemap_pattern`** - Crear pattern desde rango de celdas (guardado como `.tres` externo para persistencia)
+- **`set_tilemap_pattern`** - Aplicar pattern en posición (usa `pattern_path` o `pattern_index`)
+
+### Añadido - Screenshot Tools
+- **`render_thumbnail`** en `screenshot_tools.py` - Capturar thumbnail usando SubViewport (alternativa robusta a movie writer)
+
+### Añadido - Validación
+- **`godot3_format_warning`** en `tscn_validator.py` - Detectar escenas en formato Godot 3 (`format=2`)
+- **`validate_scene_references()`** en `validation_tools.py` - Validar referencias de escenas
+
+### Añadido - Property Tools
+- Propiedades faltantes de TileMap/TileMapLayer en `property_tools.py`
+
+### Mejorado
+- **106 herramientas totales** (99 anteriores + 7 nuevas)
+- **23 módulos registrados** en server.py (incluyendo tilemap_tools)
+- Scripts GDScript con funciones helper (`_set_cell`, `_erase_cell`, `_set_layer_prop`, etc.) evitan if/else repetidos
+- Soporte completo para `TileMap` (deprecated) y `TileMapLayer` (Godot 4.6)
+- Patterns persistidos como `.tres` externos (Godot no serializa patterns en TileSets embebidos)
+
+---
+
 ## [4.3.0] - 2026-04-23 - Resource Builder
 
 ### Añadido - Capa 7: Resource Builder (9 tools)

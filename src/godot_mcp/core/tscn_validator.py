@@ -165,7 +165,14 @@ class TSCNValidator:
                 message="ExtResource file does not exist: {path}",
                 level=ValidationLevel.ERROR,
             ),
-            # Rule 7: Root node must exist
+            # Rule 7a: Godot 3 format=2 warning
+            ValidationRule(
+                name="godot3_format_warning",
+                check=self._check_godot3_format,
+                message="Scene uses Godot 3 format=2. Godot 4 will convert this to format=3, which may lose metadata (e.g., autotile bitmask_flags). Backup recommended.",
+                level=ValidationLevel.WARNING,
+            ),
+            # Rule 7b: Root node must exist
             ValidationRule(
                 name="has_root_node",
                 check=self._check_has_root_node,
@@ -367,6 +374,10 @@ class TSCNValidator:
         if actual_resources > 0 and scene.header.load_steps == 0:
             return False
         return True
+
+    def _check_godot3_format(self, scene: Scene) -> bool:
+        """Check if scene uses Godot 3 format=2"""
+        return scene.header.format != 2
 
     def _check_ext_resource_files_exist(self, scene: Scene) -> bool:
         """Check that all ExtResource files exist on disk

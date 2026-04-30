@@ -1,8 +1,13 @@
 """
 Screenshot Tools - Herramientas para capturar frames de escenas.
 
-Usa Godot CLI --write-movie para capturar frames PNG.
-NOTA: No es screenshot instantáneo del editor, es captura de escena ejecutándose.
+Capa 1: capture_scene_frame / capture_scene_sequence
+    Usa Godot CLI --write-movie para capturar frames PNG.
+    Requiere movie writer configurado.
+
+Capa 2: render_thumbnail
+    Usa SubViewport en un script GDScript para capturar un frame
+    sin depender del movie writer. Más robusto para thumbnails estáticos.
 """
 
 from __future__ import annotations
@@ -14,8 +19,81 @@ from pathlib import Path
 from typing import Any, Optional, Tuple
 
 from .base import GodotCLIWrapper
+from .runtime_tools import run_gdscript
 
 logger = logging.getLogger(__name__)
+
+
+# ==================== SUBVIEWPORT SCRIPT ====================
+
+RENDER_THUMBNAIL_SCRIPT = '''
+extends SceneTree
+
+func _init():
+    var scene_path = "{scene_path}"
+    var output_path = "{output_path}"
+    var resolution = Vector2i({width}, {height})
+    var wait_frames = {wait_frames}
+    
+    # Check if running headless (no rendering available)
+    if DisplayServer.get_name() == "headless":
+        print("TEST_OUTPUT: " + JSON.stringify({{
+            "success": false,
+            "error": "Cannot render thumbnail in headless mode. Use capture_scene_frame with movie writer configured, or run Godot with a display server.",
+            "hint": "Configure movie writer in Project Settings: movie_writer/movie_file"
+        }}))
+        quit()
+        return
+    
+    # Create SubViewport
+    var viewport = SubViewport.new()
+    viewport.size = resolution
+    viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+    get_root().add_child(viewport)
+    
+    # Load and instantiate scene
+    var scene = load(scene_path)
+    if scene == null:
+        print("TEST_OUTPUT: " + JSON.stringify({{
+            "success": false,
+            "error": "Failed to load scene: " + scene_path
+        }}))
+        quit()
+        return
+    
+    var instance = scene.instantiate()
+    viewport.add_child(instance)
+    
+    # Wait for rendering
+    var frame_count = 0
+    while frame_count < wait_frames:
+        frame_count += 1
+        await process_frame
+    
+    # Capture texture
+    var texture = viewport.get_texture()
+    var image = texture.get_image()
+    
+    # Flip Y because viewport textures are flipped
+    image.flip_y()
+    
+    # Save as PNG
+    var err = image.save_png(output_path)
+    if err == OK:
+        print("TEST_OUTPUT: " + JSON.stringify({{
+            "success": true,
+            "image_path": output_path,
+            "resolution": [image.get_width(), image.get_height()],
+            "frames_waited": frame_count
+        }}))
+    else:
+        print("TEST_OUTPUT: " + JSON.stringify({{
+            "success": false,
+            "error": "Failed to save PNG, error code: " + str(err)
+        }}))
+    
+    quit()
+'''
 
 
 # ==================== TOOLS ====================
@@ -240,6 +318,109 @@ def capture_scene_sequence(
     }
 
 
+def render_thumbnail(
+    project_path: str,
+    scene_path: str,
+    output_path: Optional[str] = None,
+    resolution: Optional[Tuple[int, int]] = None,
+    wait_frames: int = 3,
+    godot_path: Optional[str] = None,
+    timeout: int = 60,
+) -> dict[str, Any]:
+    """
+    Render a thumbnail of a scene using SubViewport.
+
+    Alternative to capture_scene_frame that does NOT require movie writer.
+    Uses a SubViewport to render the scene and save as PNG.
+
+    NOTE: This runs Godot WITHOUT --headless to allow GPU rendering.
+    A brief window may appear. For CI/headless environments, use
+    capture_scene_frame with movie writer configured instead.
+
+    Args:
+        project_path: Absolute path to the Godot project.
+        scene_path: Path to the scene to render (res://...).
+        output_path: Where to save the PNG. If None, uses temp directory.
+        resolution: Optional (width, height). Default: 640x480.
+        wait_frames: Frames to wait before capturing (for shaders to compile).
+        godot_path: Optional path to Godot executable.
+        timeout: Maximum seconds to wait.
+
+    Returns:
+        Dict with success, image_path, resolution.
+
+    Example:
+        render_thumbnail(
+            project_path="D:/MyGame",
+            scene_path="res://scenes/Main.tscn",
+            output_path="D:/tmp/thumbnail.png",
+            resolution=(320, 240)
+        )
+    """
+    cli = GodotCLIWrapper(godot_path)
+    
+    is_valid, error = cli.validate_project(project_path)
+    if not is_valid:
+        return {"success": False, "error": error}
+    
+    if not output_path:
+        output_path = os.path.join(
+            tempfile.gettempdir(), f"thumbnail_{os.getpid()}.png"
+        )
+    
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    width = resolution[0] if resolution else 640
+    height = resolution[1] if resolution else 480
+    
+    script = RENDER_THUMBNAIL_SCRIPT.format(
+        scene_path=scene_path,
+        output_path=output_path.replace("\\", "/"),
+        width=width,
+        height=height,
+        wait_frames=wait_frames,
+    )
+    
+    # Create temporary script file
+    script_file = os.path.join(tempfile.gettempdir(), f"thumb_script_{os.getpid()}.gd")
+    try:
+        with open(script_file, "w", encoding="utf-8") as f:
+            f.write(script)
+        
+        # Run WITHOUT --headless to allow GPU rendering
+        args = ["--script", script_file]
+        result = cli.run_command(args, project_path=project_path, timeout=timeout)
+        
+        # Extract TEST_OUTPUT
+        if result.get("test_output") and isinstance(result["test_output"], dict):
+            return result["test_output"]
+        
+        # Check for headless error
+        for line in result.get("prints", []):
+            if "headless" in line.lower():
+                return {
+                    "success": False,
+                    "error": "Thumbnail rendering requires a display/GPU. In headless environments, configure movie writer and use capture_scene_frame instead.",
+                    "hint": "Project Settings → Editor → Movie Writer → Movie File",
+                    "raw_output": result.get("prints", []),
+                }
+        
+        return {
+            "success": False,
+            "error": "Thumbnail rendering failed",
+            "raw_output": result.get("prints", []),
+            "errors": result.get("errors", []),
+        }
+    
+    finally:
+        try:
+            if os.path.exists(script_file):
+                os.remove(script_file)
+        except:
+            pass
+        cli.cleanup()
+
+
 # ==================== REGISTRATION ====================
 
 
@@ -249,5 +430,6 @@ def register_screenshot_tools(mcp) -> None:
     
     mcp.add_tool(capture_scene_frame)
     mcp.add_tool(capture_scene_sequence)
+    mcp.add_tool(render_thumbnail)
     
-    logger.info("[OK] 2 screenshot tools registradas")
+    logger.info("[OK] 3 screenshot tools registradas")

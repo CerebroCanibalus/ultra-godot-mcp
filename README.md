@@ -3,7 +3,7 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Godot 4.6+](https://img.shields.io/badge/Godot-4.6+-478cbf?logo=godotengine&logoColor=white)](https://godotengine.org/)
 [![Tests](https://img.shields.io/badge/Tests-496%20passing-2ea44f)](docs/TESTS.md)
-[![Version](https://img.shields.io/badge/Version-4.4.0-6f42c1)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-4.5.0-6f42c1)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > *"La técnica es una actividad compositora o destructora, violenta, y esto es lo que Aristóteles llamaba la poiesis, la poesía, precisamente."* — Gustavo Bueno
@@ -19,7 +19,7 @@ Servidor MCP para Godot Engine que permite a IAs y asistentes controlar proyecto
 | Característica | Descripción |
 |---|---|
 | 🔍 **Parsing nativo TSCN** | Lee y escribe archivos `.tscn` directamente, sin Godot headless |
-| 🛠️ **99 herramientas** | 7 capas: Core (45) + CLI Bridge (16) + LSP/DAP (10) + Intelligence (7) + Skeleton (6) + Array Ops (2) + Resource Builder (9) |
+| 🛠️ **106 herramientas** | 8 capas: Core (45) + CLI Bridge (16) + LSP/DAP (10) + Intelligence (7) + Skeleton (6) + Array Ops (2) + Resource Builder (9) + TileMap (7) |
 | 🎯 **Inspector unificado** | `set_node_properties` maneja TODOS los tipos de propiedad automáticamente |
 | 🔄 **Sesiones en memoria** | Workspace con dirty tracking, lazy loading y cache LRU |
 | ⚡ **Godot headless persistente** | Proceso Godot corriendo en background por sesión (10x más rápido) |
@@ -28,8 +28,9 @@ Servidor MCP para Godot Engine que permite a IAs y asistentes controlar proyecto
 | 📦 **Templates** | Genera estructuras de nodos y scripts GDScript desde plantillas |
 | 🔧 **LSP/DAP nativos** | Autocompletado, hover, breakpoints, stepping — sin addons, solo Godot Editor abierto |
 | 📊 **Project Intelligence** | Dependency graph, signal graph, code analysis, métricas |
-| 🎬 **Export & Screenshot** | Exportar builds, capturar frames, grabar movies |
-| 🐛 **Debug** | 2 herramientas que requieren Godot instalado (las demás funcionan sin él) |
+ | 🎬 **Export & Screenshot** | Exportar builds, capturar frames, grabar movies |
+ | 🗺️ **TileMap Tools** | Inspeccionar y manipular TileMaps/TileSets con la API real de Godot |
+ | 🐛 **Debug** | 2 herramientas que requieren Godot instalado (las demás funcionan sin él) |
 
 ---
 
@@ -52,7 +53,7 @@ La diferencia principal: otros MCPs lanzan `godot --headless --script` por cada 
 
 | Dimensión | [godot-mcp](https://github.com/Coding-Solo/godot-mcp) | [GoPeak](https://github.com/GoD0Yun/Gopeak-godot-mcp) | [GodotIQ](https://godotiq.com) | **Ultra Godot MCP** |
 |---|---|---|---|---|
-| **Herramientas** | ~15 | 110+ | 36 (22 free + 14 Pro) | **99** |
+| **Herramientas** | ~15 | 110+ | 36 (22 free + 14 Pro) | **106** |
 | **Precio** | Gratis | Gratis (MIT) | $19 Pro | **Gratis (MIT)** |
 | **Addon requerido** | ❌ | ✅ (GDScript) | ✅ (18/22 tools) | **❌ Zero addon** |
 | **WebSocket** | ❌ | ✅ (4 puertos) | ✅ (puerto 6007) | **❌ Zero WebSocket** |
@@ -76,7 +77,7 @@ La diferencia principal: otros MCPs lanzan `godot --headless --script` por cada 
 | **Docs en español** | ❌ | ❌ | ❌ | **✅** |
 | **Instalación** | `npx` (npm) | `npx` (npm) | `pip` (Python) | **`pip` (Python)** |
 
-> **Nota:** GoPeak tiene más herramientas en número (110+), pero requiere addon GDScript + WebSocket + 4 puertos. Ultra Godot MCP prioriza **zero-config**: 99 herramientas que funcionan sin tocar tu proyecto Godot.
+> **Nota:** GoPeak tiene más herramientas en número (110+), pero requiere addon GDScript + WebSocket + 4 puertos. Ultra Godot MCP prioriza **zero-config**: 106 herramientas que funcionan sin tocar tu proyecto Godot.
 
 ### Comparativa de funcionalidades
 
@@ -435,8 +436,24 @@ Maneja **automáticamente** todos los tipos:
 #### Assets
 | Herramienta | Descripción |
 |---|---|
-| `create_sprite_frames` | Crear SpriteFrames (animaciones frame-by-frame) |
-| `create_tile_set` | Crear TileSet (atlas + colisiones) |
+ | `create_sprite_frames` | Crear SpriteFrames (animaciones frame-by-frame) |
+ | `create_tile_set` | Crear TileSet (atlas + colisiones) |
+
+### Capa 8: TileMap Tools (7 tools) — Requiere Godot
+
+> 🗺️ Usa la **API real de Godot** (`run_gdscript`) para inspeccionar y manipular TileMaps/TileSets. 
+> Soporta tanto `TileMap` como `TileMapLayer` (Godot 4.6). 
+> Los patterns se guardan como `.tres` externos para persistencia.
+
+| Herramienta | Descripción |
+|---|---|
+| `inspect_tileset` | Inspeccionar TileSet: sources, tiles, atlas, terrain sets |
+| `inspect_tilemap` | Inspeccionar TileMap/TileMapLayer: celdas usadas, bounds, layers |
+| `set_tilemap_cells` | Setear o borrar celdas individuales (source_id + atlas_coords) |
+| `set_tilemap_layer_properties` | Configurar layer: z_index, y_sort_enabled, modulate, etc. |
+| `apply_tilemap_terrain` | Aplicar terrain set a un rango de celdas |
+| `create_tilemap_pattern` | Crear pattern desde rango de celdas (guardado como `.tres`) |
+| `set_tilemap_pattern` | Aplicar pattern en posición (usa `pattern_path` o `pattern_index`) |
 
 ---
 
@@ -444,7 +461,8 @@ Maneja **automáticamente** todos los tipos:
 
 | Documento | Contenido |
 |---|---|
-| [TOOLS.md](docs/TOOLS.md) | Referencia completa de las 99 herramientas |
+| [TOOLS.md](docs/TOOLS.md) | Referencia completa de las 106 herramientas |
+| [TILEMAP_TOOLS.md](docs/TILEMAP_TOOLS.md) | Guía de TileMap Tools con ejemplos |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Diseño interno, sesiones y cache |
 | [ARCHITECTURE_v4.md](docs/ARCHITECTURE_v4.md) | Arquitectura v4.0.0 (4 capas) |
 | [CLEANUP_v4.md](docs/CLEANUP_v4.md) | Análisis de limpieza e integración con sesiones |
@@ -463,7 +481,7 @@ pytest tests/e2e/          # Solo E2E
 pytest tests/test_server.py -v  # Tests específicos
 ```
 
-**Estado:** 489 tests pasando · 22 módulos registrados en v4.4.0
+**Estado:** 496 tests pasando · 23 módulos registrados en v4.5.0
 
 ---
 
@@ -471,7 +489,7 @@ pytest tests/test_server.py -v  # Tests específicos
 
 ```
 src/godot_mcp/
-├── server.py                    # Entry point FastMCP (22 módulos registrados)
+├── server.py                    # Entry point FastMCP (23 módulos registrados)
 ├── session_manager.py           # Gestión de sesiones + Godot headless
 ├── core/                        # Núcleo
 │   ├── api/                     # APIs de Godot (datos externos)
@@ -485,7 +503,7 @@ src/godot_mcp/
 │   ├── cache.py                 # Cache LRU
 │   ├── models.py                # Modelos Pydantic
 │   └── project_index.py         # Índice de proyectos
-├── tools/                       # Capas 1, 5, 6, 7
+├── tools/                       # Capas 1, 5, 6, 7, 8
 │   ├── scene_tools.py           # Operaciones de escenas
 │   ├── node_tools.py            # Operaciones de nodos
 │   ├── resource_tools.py        # Gestión de recursos
@@ -495,6 +513,7 @@ src/godot_mcp/
 │   ├── signal_and_script_tools.py  # Señales y scripts
 │   ├── property_tools.py        # Inspector unificado
 │   ├── debug_tools.py           # Debug
+│   ├── tilemap_tools.py         # Capa 8: TileMap/TileSet tools
 │   ├── skeleton_tools.py        # Capa 5: Skeleton2D/3D
 │   ├── array_tools.py           # Capa 6: Array Operations
 │   └── resource_builder_tools.py # Capa 7: Resource Builder (9 tools)

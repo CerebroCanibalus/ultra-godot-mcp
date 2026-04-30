@@ -1,8 +1,8 @@
 # 🛠️ Referencia de Herramientas MCP
 
-Todas las herramientas disponibles en Ultra Godot MCP v4.3.0.
+Todas las herramientas disponibles en Ultra Godot MCP v4.5.0.
 
-**Total: 98 herramientas** organizadas en 7 capas arquitectónicas.
+**Total: 106 herramientas** organizadas en 8 capas arquitectónicas.
 
 ---
 
@@ -36,6 +36,7 @@ Todas las herramientas disponibles en Ultra Godot MCP v4.3.0.
 | **Resource Builder** | Animation | 2 | ❌ |
 | **Resource Builder** | AnimationTree | 3 | ❌ |
 | **Resource Builder** | Assets | 2 | ❌ |
+| **TileMap** | TileMap Tools | 7 | ✅ |
 
 ---
 
@@ -1951,6 +1952,99 @@ create_tile_set(
 
 ---
 
-*Documento de herramientas v4.3.0*
-*Fecha: 2026-04-23*
-*Total: 98 herramientas*
+---
+
+## Capa 8: TileMap Tools (7 herramientas) — Requiere Godot
+
+> Usa la API real de Godot (`run_gdscript`) para inspeccionar y manipular TileMaps/TileSets.
+> Soporta `TileMap` (deprecated) y `TileMapLayer` (Godot 4.6+).
+> Ver documentación completa en [TILEMAP_TOOLS.md](TILEMAP_TOOLS.md).
+
+### `inspect_tileset`
+Inspeccionar TileSet: sources, tiles, atlas, terrain sets, patterns.
+
+```python
+inspect_tileset(
+    project_path="D:/MyGame",
+    tileset_path="res://tilesets/ground.tres",
+)
+```
+
+### `inspect_tilemap`
+Inspeccionar TileMap/TileMapLayer: celdas usadas, bounds, layers.
+
+```python
+inspect_tilemap(
+    project_path="D:/MyGame",
+    scene_path="res://scenes/Level.tscn",
+    tilemap_node_path="Background",
+)
+```
+
+### `set_tilemap_cells`
+Setear o borrar celdas individuales.
+
+```python
+set_tilemap_cells(
+    project_path="D:/MyGame",
+    scene_path="res://scenes/Level.tscn",
+    cells=[
+        {"coords": {"x": 5, "y": 3}, "source_id": 1, "atlas_coords": {"x": 2, "y": 0}},
+        {"coords": {"x": 6, "y": 3}, "erase": True},
+    ],
+)
+```
+
+### `set_tilemap_layer_properties`
+Configurar layer: z_index, y_sort_enabled, modulate.
+
+```python
+set_tilemap_layer_properties(
+    project_path="D:/MyGame",
+    scene_path="res://scenes/Level.tscn",
+    layer=0,
+    properties={"z_index": 10, "y_sort_enabled": True},
+)
+```
+
+### `apply_tilemap_terrain`
+Aplicar terrain set a un rango de celdas.
+
+```python
+apply_tilemap_terrain(
+    project_path="D:/MyGame",
+    scene_path="res://scenes/Level.tscn",
+    cells=[{"x": 10, "y": 5}, {"x": 11, "y": 5}],
+    terrain_set=0,
+    terrain=1,
+)
+```
+
+### `create_tilemap_pattern`
+Crear pattern desde rango de celdas (guardado como `.tres`).
+
+```python
+create_tilemap_pattern(
+    project_path="D:/MyGame",
+    scene_path="res://scenes/Level.tscn",
+    rect={"x": 0, "y": 0, "width": 4, "height": 4},
+)
+```
+
+### `set_tilemap_pattern`
+Aplicar pattern en posición (`pattern_path` o `pattern_index`).
+
+```python
+set_tilemap_pattern(
+    project_path="D:/MyGame",
+    scene_path="res://scenes/Level.tscn",
+    position={"x": 10, "y": 10},
+    pattern_path="res://patterns/room_corner.tres",
+)
+```
+
+---
+
+*Documento de herramientas v4.5.0*
+*Fecha: 2026-04-30*
+*Total: 106 herramientas*

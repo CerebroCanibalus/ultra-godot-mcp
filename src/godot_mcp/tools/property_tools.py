@@ -1047,19 +1047,20 @@ NODE_PROPERTY_SCHEMAS: dict[str, dict[str, dict]] = {
     # --- TileMap ---
     "TileMap": {
         "tile_set": {"type": "ext_resource", "resource_type": "TileSet"},
-        "y_sort_origin": {"type": "int"},
-        "collision_layer": {"type": "int"},
+        "collision_animatable": {"type": "bool"},
         "collision_visibility_mode": {"type": "int"},
-        "navigation_layer": {"type": "int"},
         "navigation_visibility_mode": {"type": "int"},
-        "rendering_layer": {"type": "int"},
-        "rendering_visibility_mode": {"type": "int"},
+        "rendering_quadrant_size": {"type": "int"},
+        "y_sort_origin": {"type": "int"},
     },
     "TileMapLayer": {
         "tile_set": {"type": "ext_resource", "resource_type": "TileSet"},
+        "enabled": {"type": "bool"},
+        "modulate": {"type": "Color"},
+        "y_sort_enabled": {"type": "bool"},
         "y_sort_origin": {"type": "int"},
-        "collision_layer": {"type": "int"},
-        "navigation_layer": {"type": "int"},
+        "z_index": {"type": "int"},
+        "navigation_enabled": {"type": "bool"},
     },
     # --- World ---
     "WorldEnvironment": {

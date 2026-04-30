@@ -269,6 +269,118 @@ def validate_gdscript(
         }
 
 
+def validate_scene_references(
+    scene_path: str,
+    project_path: str,
+) -> dict:
+    """
+    Validate that all references in a TSCN scene exist on disk.
+
+    Checks:
+    - All ExtResource files exist (res:// paths resolved against project_path)
+    - All SubResource references are valid (no orphans)
+    - Returns detailed list of missing resources
+
+    Args:
+        scene_path: Absolute or relative path to the .tscn file.
+        project_path: Absolute path to the Godot project.
+
+    Returns:
+        Dict with:
+        - success: True if all references are valid
+        - missing_resources: List of {type, id, path, reason}
+        - valid_resources: List of {type, id, path}
+        - summary: {ext_resources, sub_resources, missing_count}
+
+    Example:
+        result = validate_scene_references("scenes/Player.tscn", "D:/MyGame")
+        if not result["success"]:
+            for missing in result["missing_resources"]:
+                print(f"Missing: {missing['path']}")
+    """
+    try:
+        from godot_mcp.core.tscn_parser import parse_tscn
+        from pathlib import Path
+
+        if not scene_path.endswith(".tscn"):
+            scene_path = scene_path + ".tscn"
+
+        if not os.path.isfile(scene_path):
+            return {
+                "success": False,
+                "error": f"Scene file not found: {scene_path}",
+            }
+
+        scene = parse_tscn(scene_path)
+
+        missing = []
+        valid = []
+
+        # Check ExtResources
+        for ext in scene.ext_resources:
+            if ext.path.startswith("res://"):
+                relative = ext.path.replace("res://", "")
+                full_path = os.path.join(project_path, relative)
+                
+                if not os.path.exists(full_path):
+                    missing.append({
+                        "type": "ExtResource",
+                        "id": ext.id,
+                        "path": ext.path,
+                        "resolved_path": full_path,
+                        "reason": "File not found on disk",
+                    })
+                else:
+                    valid.append({
+                        "type": "ExtResource",
+                        "id": ext.id,
+                        "path": ext.path,
+                    })
+
+        # Check SubResource references in nodes
+        valid_sub_ids = {r.id for r in scene.sub_resources if r.id}
+        for node in scene.nodes:
+            for key, value in node.properties.items():
+                if isinstance(value, dict):
+                    ref_type = value.get("type")
+                    ref_id = value.get("ref")
+                    if ref_type == "SubResource" and ref_id:
+                        if ref_id not in valid_sub_ids:
+                            missing.append({
+                                "type": "SubResource",
+                                "id": ref_id,
+                                "path": f"{node.name}.{key}",
+                                "reason": f"SubResource '{ref_id}' referenced but not defined",
+                            })
+                        else:
+                            valid.append({
+                                "type": "SubResource",
+                                "id": ref_id,
+                                "path": f"{node.name}.{key}",
+                            })
+
+        return {
+            "success": len(missing) == 0,
+            "scene_path": scene_path,
+            "missing_resources": missing,
+            "valid_resources": valid,
+            "summary": {
+                "ext_resources": len(scene.ext_resources),
+                "sub_resources": len(scene.sub_resources),
+                "missing_count": len(missing),
+                "valid_count": len(valid),
+            },
+        }
+
+    except Exception as e:
+        logger.exception(f"Error validating scene references: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "scene_path": scene_path,
+        }
+
+
 def validate_project(
     project_path: str,
     strict: bool = False,
@@ -391,5 +503,6 @@ def register_validation_tools(mcp: FastMCP) -> None:
     """
     mcp.add_tool(validate_tscn)
     mcp.add_tool(validate_gdscript)
+    mcp.add_tool(validate_scene_references)
     mcp.add_tool(validate_project)
-    logger.info("[OK] 3 validation tools registered")
+    logger.info("[OK] 4 validation tools registered")

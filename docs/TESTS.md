@@ -4,12 +4,12 @@
 
 | Métrica | Valor |
 |---------|-------|
-| **Tests totales** | 484 |
-| **Fallos** | 0 (1 preexistente: `test_singleton` - problema de orden de ejecución) |
-| **Archivos de test** | 24 |
-| **Cobertura estimada** | ~85% |
-| **Tests de estrés (LAIKA)** | 18/18 |
-| **Última actualización** | 2026-04-14 |
+| **Tests totales** | 496 |
+| **Fallos** | 0 |
+| **Archivos de test** | 25 |
+| **Cobertura estimada** | ~87% |
+| **Tests de estrés (LAIKA)** | 25/25 ✅ |
+| **Última actualización** | 2026-04-30 |
 | **Tests E2E** | 6/6 ✅ |
 | **Tests Server** | 16/16 ✅ |
 | **Tests Templates** | 35/35 ✅ |
@@ -41,6 +41,7 @@
 | `test_resource_tools.py` | 26 | Recursos .tres: create, read, update, uid, list |
 | `test_property_tools.py` | 32 | Propiedades: schemas, shapes, validación, procesamiento |
 | `test_signal_and_script_tools.py` | 24 | Señales y scripts: connect_signal, set_script, add_sub_resource |
+| `test_tilemap_tools.py` | 12 | TileMap: inspect, set cells, terrain, patterns, layer properties |
 
 ### Infraestructura
 
@@ -57,7 +58,7 @@
 
 | Archivo | Tests | Qué cubre |
 |---------|-------|-----------|
-| `test_stress_laike.py` | 18 | Parseo masivo, roundtrip, validacion, escritura bulk, sesiones, busquedas |
+| `test_stress_laike.py` | 25 | Parseo masivo, roundtrip, validacion, escritura bulk, sesiones, busquedas, tilemap tools |
 
 ### Deuda Técnica (v2.5 - 2026-04-14)
 
