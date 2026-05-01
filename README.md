@@ -3,7 +3,7 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Godot 4.6+](https://img.shields.io/badge/Godot-4.6+-478cbf?logo=godotengine&logoColor=white)](https://godotengine.org/)
 [![Tests](https://img.shields.io/badge/Tests-496%20passing-2ea44f)](docs/TESTS.md)
-[![Version](https://img.shields.io/badge/Version-4.5.0-6f42c1)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-4.5.1-6f42c1)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > *"La técnica es una actividad compositora o destructora, violenta, y esto es lo que Aristóteles llamaba la poiesis, la poesía, precisamente."* — Gustavo Bueno
@@ -19,7 +19,7 @@ Servidor MCP para Godot Engine que permite a IAs y asistentes controlar proyecto
 | Característica | Descripción |
 |---|---|
 | 🔍 **Parsing nativo TSCN** | Lee y escribe archivos `.tscn` directamente, sin Godot headless |
-| 🛠️ **106 herramientas** | 8 capas: Core (45) + CLI Bridge (16) + LSP/DAP (10) + Intelligence (7) + Skeleton (6) + Array Ops (2) + Resource Builder (9) + TileMap (7) |
+| 🛠️ **107 herramientas** | 8 capas: Core (45) + CLI Bridge (16) + LSP/DAP (10) + Intelligence (7) + Skeleton (6) + Array Ops (2) + Resource Builder (9) + TileMap (8) |
 | 🎯 **Inspector unificado** | `set_node_properties` maneja TODOS los tipos de propiedad automáticamente |
 | 🔄 **Sesiones en memoria** | Workspace con dirty tracking, lazy loading y cache LRU |
 | ⚡ **Godot headless persistente** | Proceso Godot corriendo en background por sesión (10x más rápido) |
@@ -53,7 +53,7 @@ La diferencia principal: otros MCPs lanzan `godot --headless --script` por cada 
 
 | Dimensión | [godot-mcp](https://github.com/Coding-Solo/godot-mcp) | [GoPeak](https://github.com/GoD0Yun/Gopeak-godot-mcp) | [GodotIQ](https://godotiq.com) | **Ultra Godot MCP** |
 |---|---|---|---|---|
-| **Herramientas** | ~15 | 110+ | 36 (22 free + 14 Pro) | **106** |
+| **Herramientas** | ~15 | 110+ | 36 (22 free + 14 Pro) | **107** |
 | **Precio** | Gratis | Gratis (MIT) | $19 Pro | **Gratis (MIT)** |
 | **Addon requerido** | ❌ | ✅ (GDScript) | ✅ (18/22 tools) | **❌ Zero addon** |
 | **WebSocket** | ❌ | ✅ (4 puertos) | ✅ (puerto 6007) | **❌ Zero WebSocket** |
@@ -77,7 +77,7 @@ La diferencia principal: otros MCPs lanzan `godot --headless --script` por cada 
 | **Docs en español** | ❌ | ❌ | ❌ | **✅** |
 | **Instalación** | `npx` (npm) | `npx` (npm) | `pip` (Python) | **`pip` (Python)** |
 
-> **Nota:** GoPeak tiene más herramientas en número (110+), pero requiere addon GDScript + WebSocket + 4 puertos. Ultra Godot MCP prioriza **zero-config**: 106 herramientas que funcionan sin tocar tu proyecto Godot.
+> **Nota:** GoPeak tiene más herramientas en número (110+), pero requiere addon GDScript + WebSocket + 4 puertos. Ultra Godot MCP prioriza **zero-config**: 107 herramientas que funcionan sin tocar tu proyecto Godot.
 
 ### Comparativa de funcionalidades
 
@@ -461,7 +461,7 @@ Maneja **automáticamente** todos los tipos:
 
 | Documento | Contenido |
 |---|---|
-| [TOOLS.md](docs/TOOLS.md) | Referencia completa de las 106 herramientas |
+| [TOOLS.md](docs/TOOLS.md) | Referencia completa de las 107 herramientas |
 | [TILEMAP_TOOLS.md](docs/TILEMAP_TOOLS.md) | Guía de TileMap Tools con ejemplos |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Diseño interno, sesiones y cache |
 | [ARCHITECTURE_v4.md](docs/ARCHITECTURE_v4.md) | Arquitectura v4.0.0 (4 capas) |

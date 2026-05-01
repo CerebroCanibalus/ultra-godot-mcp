@@ -16,6 +16,10 @@ Capa 3: capture_scene_sequence
 IMPORTANTE: Todas las herramientas escriben los archivos directamente al
 filesystem via GDScript (image.save_png). NUNCA devuelven bytes binarios
 en la respuesta MCP — solo metadata (ruta, dimensiones, etc.).
+
+ANTI-ALUCINACIÓN: Cada tool exitoso incluye un WARNING explícito indicando
+al agente que NO puede ver la imagen. Si el agente necesita analizar el
+contenido visual, DEBE pedir al usuario que adjunte la imagen.
 """
 
 from __future__ import annotations
@@ -33,16 +37,51 @@ from .runtime_tools import run_gdscript
 logger = logging.getLogger(__name__)
 
 
+# ==================== CONSTANTES ====================
+
+VISUAL_ACCESS_WARNING = (
+    "⚠️  ATENCIÓN AGENTE: No tienes acceso visual a la imagen generada. "
+    "El archivo se guardó en disco pero NO fue transmitido a tu contexto. "
+    "Si necesitas analizar contenido visual (colores, formas, disposición de tiles, etc.), "
+    "DEBES pedirle al usuario que adjunte/pegue la imagen en el chat. "
+    "NO intentes describir o inferir el contenido visual basándote únicamente en metadatos."
+)
+
+
 # ==================== GDSCRIPT TEMPLATES ====================
+
+# Helper GDScript para generar ASCII art desde Image
+ASCII_PREVIEW_HELPER = '''
+func _generate_ascii_preview(image, max_width: int = 80, max_height: int = 40) -> String:
+    var w = image.get_width()
+    var h = image.get_height()
+    var step_x = max(1, w / max_width)
+    var step_y = max(1, h / max_height)
+    var chars = " .:-=+*#%@"
+    var result = ""
+    for y in range(0, h, step_y):
+        var line = ""
+        for x in range(0, w, step_x):
+            var color = image.get_pixel(x, y)
+            var brightness = (color.r + color.g + color.b) / 3.0
+            var idx = int(brightness * (chars.length() - 1))
+            line += chars[idx]
+        result += line + "\\n"
+    return result
+'''
+
 
 RENDER_THUMBNAIL_SCRIPT = '''
 extends SceneTree
+
+''' + ASCII_PREVIEW_HELPER + '''
 
 func _init():
     var scene_path = "{scene_path}"
     var output_path = "{output_path}"
     var resolution = Vector2i({width}, {height})
     var wait_frames = {wait_frames}
+    var return_preview = {return_preview}
     
     # Check if running headless (no rendering available)
     if DisplayServer.get_name() == "headless":
@@ -101,14 +140,19 @@ func _init():
     
     if err == OK:
         var file_size = FileAccess.get_file_as_bytes(output_path).size() if FileAccess.file_exists(output_path) else 0
-        print("TEST_OUTPUT: " + JSON.stringify({{
+        var result = {{
             "success": true,
             "image_path": output_path,
             "resolution": [image.get_width(), image.get_height()],
             "frames_waited": wait_frames,
             "format": format,
             "file_size_bytes": file_size
-        }}))
+        }}
+        
+        if return_preview:
+            result["preview_ascii"] = _generate_ascii_preview(image, 80, 40)
+        
+        print("TEST_OUTPUT: " + JSON.stringify(result))
     else:
         print("TEST_OUTPUT: " + JSON.stringify({{
             "success": false,
@@ -122,6 +166,8 @@ func _init():
 CAPTURE_FRAME_SCRIPT = '''
 extends SceneTree
 
+''' + ASCII_PREVIEW_HELPER + '''
+
 func _init():
     var scene_path = "{scene_path}"
     var output_path = "{output_path}"
@@ -129,6 +175,7 @@ func _init():
     var target_frame = {frame_number}
     var format = "{format}"
     var quality = {quality}
+    var return_preview = {return_preview}
     
     if DisplayServer.get_name() == "headless":
         print("TEST_OUTPUT: " + JSON.stringify({{
@@ -181,13 +228,18 @@ func _init():
         err = image.save_png(output_path)
     
     if err == OK:
-        print("TEST_OUTPUT: " + JSON.stringify({{
+        var result = {{
             "success": true,
             "image_path": output_path,
             "resolution": [image.get_width(), image.get_height()],
             "frame_captured": target_frame,
             "format": format
-        }}))
+        }}
+        
+        if return_preview:
+            result["preview_ascii"] = _generate_ascii_preview(image, 80, 40)
+        
+        print("TEST_OUTPUT: " + JSON.stringify(result))
     else:
         print("TEST_OUTPUT: " + JSON.stringify({{
             "success": false,
@@ -201,6 +253,8 @@ func _init():
 CAPTURE_SEQUENCE_SCRIPT = '''
 extends SceneTree
 
+''' + ASCII_PREVIEW_HELPER + '''
+
 func _init():
     var scene_path = "{scene_path}"
     var output_dir = "{output_dir}"
@@ -209,6 +263,7 @@ func _init():
     var fps = {fps}
     var format = "{format}"
     var quality = {quality}
+    var return_preview = {return_preview}
     
     if DisplayServer.get_name() == "headless":
         print("TEST_OUTPUT: " + JSON.stringify({{
@@ -240,16 +295,19 @@ func _init():
     # Ensure output directory exists
     var dir = DirAccess.open("res://")
     if dir == null:
-        # Try absolute path
         pass
     
     # Capture frames
     var frame_paths = []
+    var first_image = null
     for i in range(frame_count):
         await self.process_frame
         
         var texture = viewport.get_texture()
         var image = texture.get_image()
+        
+        if i == 0 and return_preview:
+            first_image = image.duplicate()
         
         var ext = ".png"
         if format == "jpg" or format == "jpeg":
@@ -275,14 +333,19 @@ func _init():
         if err == OK:
             frame_paths.append(frame_path)
     
-    print("TEST_OUTPUT: " + JSON.stringify({{
+    var result = {{
         "success": true,
         "frame_paths": frame_paths,
         "frame_count": frame_paths.size(),
         "requested_frames": frame_count,
         "output_dir": output_dir,
         "format": format
-    }}))
+    }}
+    
+    if return_preview and first_image != null:
+        result["preview_ascii"] = _generate_ascii_preview(first_image, 80, 40)
+    
+    print("TEST_OUTPUT: " + JSON.stringify(result))
     
     quit()
 '''
@@ -305,6 +368,14 @@ def _extract_test_output(result: dict[str, Any]) -> Optional[dict[str, Any]]:
     return None
 
 
+def _add_visual_warning(response: dict[str, Any]) -> dict[str, Any]:
+    """Add anti-hallucination warning to successful visual tool responses."""
+    if response.get("success"):
+        response["agent_visual_access"] = False
+        response["user_action_required"] = VISUAL_ACCESS_WARNING
+    return response
+
+
 # ==================== TOOLS ====================
 
 
@@ -316,6 +387,7 @@ def render_thumbnail(
     wait_frames: int = 3,
     format: str = "jpeg",
     quality: float = 0.85,
+    return_preview: bool = False,
     godot_path: Optional[str] = None,
     timeout: int = 60,
 ) -> dict[str, Any]:
@@ -327,6 +399,9 @@ def render_thumbnail(
     Runs Godot WITHOUT --headless to allow GPU rendering.
     A brief window may appear.
 
+    IMPORTANT: The agent CANNOT see the generated image. If visual analysis is
+    needed, the user must attach the image manually.
+
     Args:
         project_path: Absolute path to the Godot project.
         scene_path: Path to the scene to render (res://...).
@@ -335,11 +410,15 @@ def render_thumbnail(
         wait_frames: Frames to wait before capturing (for shaders to compile).
         format: Image format: "png", "jpeg" (default), or "webp".
         quality: JPEG/WebP quality (0.0-1.0). Default: 0.85.
+        return_preview: If True, generates an ASCII art preview of the image.
+                        Useful for getting a rough idea of composition without
+                        requiring the user to attach the image.
         godot_path: Optional path to Godot executable.
         timeout: Maximum seconds to wait.
 
     Returns:
-        Dict with success, image_path, resolution, format, file_size_bytes.
+        Dict with success, image_path, resolution, format, file_size_bytes,
+        and optionally preview_ascii. Includes anti-hallucination warning.
 
     Example:
         render_thumbnail(
@@ -376,6 +455,7 @@ def render_thumbnail(
         wait_frames=wait_frames,
         format=format,
         quality=quality,
+        return_preview=str(return_preview).lower(),
     )
     
     # Run WITHOUT --headless to allow GPU rendering
@@ -393,7 +473,7 @@ def render_thumbnail(
         if test_output and isinstance(test_output, dict):
             # If GDScript succeeded, return its result regardless of project errors
             if test_output.get("success"):
-                return test_output
+                return _add_visual_warning(test_output)
             # If GDScript explicitly failed, return its error
             return test_output
         
@@ -430,6 +510,7 @@ def capture_scene_frame(
     resolution: Optional[Tuple[int, int]] = None,
     format: str = "jpeg",
     quality: float = 0.85,
+    return_preview: bool = False,
     godot_path: Optional[str] = None,
     timeout: int = 60,
 ) -> dict[str, Any]:
@@ -437,6 +518,9 @@ def capture_scene_frame(
     Capture a specific frame from a running scene.
 
     Uses SubViewport + run_gdscript. Does NOT require movie writer.
+
+    IMPORTANT: The agent CANNOT see the generated image. If visual analysis is
+    needed, the user must attach the image manually.
 
     Args:
         project_path: Absolute path to the Godot project.
@@ -446,11 +530,13 @@ def capture_scene_frame(
         resolution: Optional (width, height) for the capture. Default: 1280x720.
         format: Image format: "png", "jpeg" (default), or "webp".
         quality: JPEG/WebP quality (0.0-1.0). Default: 0.85.
+        return_preview: If True, generates an ASCII art preview.
         godot_path: Optional path to Godot executable.
         timeout: Maximum seconds to wait.
 
     Returns:
-        Dict with success, image_path, resolution, frame_captured, format.
+        Dict with success, image_path, resolution, frame_captured, format,
+        and optionally preview_ascii. Includes anti-hallucination warning.
 
     Example:
         capture_scene_frame(
@@ -481,6 +567,7 @@ def capture_scene_frame(
         frame_number=frame_number,
         format=format,
         quality=quality,
+        return_preview=str(return_preview).lower(),
     )
     
     cli = GodotCLIWrapper(godot_path)
@@ -502,7 +589,7 @@ def capture_scene_frame(
         
         if test_output and isinstance(test_output, dict):
             if test_output.get("success"):
-                return test_output
+                return _add_visual_warning(test_output)
             return test_output
         
         return {
@@ -530,6 +617,7 @@ def capture_scene_sequence(
     resolution: Optional[Tuple[int, int]] = None,
     format: str = "jpeg",
     quality: float = 0.85,
+    return_preview: bool = False,
     godot_path: Optional[str] = None,
     timeout: int = 120,
 ) -> dict[str, Any]:
@@ -537,6 +625,9 @@ def capture_scene_sequence(
     Capture a sequence of frames from a running scene.
 
     Uses SubViewport + run_gdscript. Does NOT require movie writer.
+
+    IMPORTANT: The agent CANNOT see the generated images. If visual analysis is
+    needed, the user must attach images manually.
 
     Args:
         project_path: Absolute path to the Godot project.
@@ -547,11 +638,13 @@ def capture_scene_sequence(
         resolution: Optional (width, height). Default: 1280x720.
         format: Image format: "png", "jpeg" (default), or "webp".
         quality: JPEG/WebP quality (0.0-1.0). Default: 0.85.
+        return_preview: If True, generates an ASCII art preview of the first frame.
         godot_path: Optional path to Godot executable.
         timeout: Maximum seconds to wait.
 
     Returns:
-        Dict with success, frame_paths, frame_count, duration_seconds, format.
+        Dict with success, frame_paths, frame_count, duration_seconds, format,
+        and optionally preview_ascii. Includes anti-hallucination warning.
 
     Example:
         capture_scene_sequence(
@@ -581,6 +674,7 @@ def capture_scene_sequence(
         fps=fps,
         format=format,
         quality=quality,
+        return_preview=str(return_preview).lower(),
     )
     
     cli = GodotCLIWrapper(godot_path)
@@ -602,7 +696,7 @@ def capture_scene_sequence(
         
         if test_output and isinstance(test_output, dict):
             if test_output.get("success"):
-                return test_output
+                return _add_visual_warning(test_output)
             return test_output
         
         return {

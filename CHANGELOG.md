@@ -6,6 +6,24 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 
 ---
 
+## [4.5.1] - 2026-04-30 - Anti-Hallucination Visual Tools
+
+### Añadido
+- **`render_tileset_atlas`** - Nueva tool en `tilemap_tools.py`. Captura el atlas de un TileSet con grid numerado superpuesto (líneas rojas + coordenadas). Incluye `return_preview` para ASCII art.
+- **ASCII art preview** en `render_thumbnail`, `capture_scene_frame`, `capture_scene_sequence`, `render_tileset_atlas` — parámetro `return_preview: bool` genera representación textual (~80×40 chars) del contenido visual.
+- **Anti-hallucination system** — Todas las tools visuales (`render_thumbnail`, `capture_scene_frame`, `capture_scene_sequence`, `render_tileset_atlas`) ahora devuelven `agent_visual_access: false` + `user_action_required: WARNING` que fuerza al agente a pedir la imagen al usuario en lugar de inventar descripciones.
+
+### Mejorado
+- **`inspect_tilemap`** — Ahora devuelve `ascii_map` (representación visual del tilemap como texto), `ascii_lines` (array por fila), y `ascii_map_truncated` (si excede 80×40).
+- **`inspect_tileset`** — Ahora incluye `texture_size`, `grid_dimensions` (cols, rows) por cada source atlas, facilitando el cálculo de coordenadas.
+- **`screenshot_tools.py`** — Reescrito con SubViewport robusto, soporte JPEG/WebP/PNG, calidad configurable, y escritura directa a disco (nunca base64 por defecto).
+- **107 herramientas totales** (106 anteriores + 1 nueva: `render_tileset_atlas`)
+
+### Corregido
+- **`inspect_tilemap`** — Bug: `used_rect` se convertía en Dictionary antes de usar `.size.x`, causando error en GDScript. Ahora mantiene `Rect2i` nativo hasta el build del resultado final.
+
+---
+
 ## [4.5.0] - 2026-04-30 - TileMap Tools
 
 ### Añadido - Capa 8: TileMap Tools (7 tools)

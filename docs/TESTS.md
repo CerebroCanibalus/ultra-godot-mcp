@@ -14,6 +14,8 @@
 | **Tests Server** | 16/16 ✅ |
 | **Tests Templates** | 35/35 ✅ |
 | **Tests Fuzzy** | 11/11 ✅ |
+| **Tests Screenshot** | 3/3 ✅ |
+| **Tests TileMap Atlas** | 1/1 ✅ |
 
 ---
 

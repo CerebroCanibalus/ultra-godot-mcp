@@ -13,6 +13,7 @@ Herramientas:
 - apply_tilemap_terrain: Aplicar terrain a rangos de celdas
 - create_tilemap_pattern: Crear un pattern desde un rango de celdas
 - set_tilemap_pattern: Aplicar un pattern en una posición
+- render_tileset_atlas: Capturar imagen del atlas con grid numerado
 """
 
 from __future__ import annotations
@@ -20,11 +21,24 @@ from __future__ import annotations
 import json
 import logging
 import os
+import tempfile
 from typing import Any, Optional
 
 from godot_mcp.godot_cli.runtime_tools import run_gdscript
+from godot_mcp.godot_cli.base import GodotCLIWrapper
 
 logger = logging.getLogger(__name__)
+
+
+# ==================== CONSTANTES ====================
+
+VISUAL_ACCESS_WARNING = (
+    "⚠️  ATENCIÓN AGENTE: No tienes acceso visual a la imagen generada. "
+    "El archivo se guardó en disco pero NO fue transmitido a tu contexto. "
+    "Si necesitas analizar contenido visual (colores, formas, disposición de tiles, etc.), "
+    "DEBES pedirle al usuario que adjunte/pegue la imagen en el chat. "
+    "NO intentes describir o inferir el contenido visual basándote únicamente en metadatos."
+)
 
 
 # ==================== SCRIPTS GDSCRIPT ====================
@@ -71,6 +85,25 @@ func _init():
             source_info["margins"] = {{"x": atlas.margins.x, "y": atlas.margins.y}}
             source_info["separation"] = {{"x": atlas.separation.x, "y": atlas.separation.y}}
             source_info["texture_region_size"] = {{"x": atlas.texture_region_size.x, "y": atlas.texture_region_size.y}}
+            
+            if atlas.texture:
+                var tex_size = atlas.texture.get_size()
+                source_info["texture_size"] = {{"x": tex_size.x, "y": tex_size.y}}
+                var region_w = atlas.texture_region_size.x
+                var region_h = atlas.texture_region_size.y
+                var sep_x = atlas.separation.x
+                var sep_y = atlas.separation.y
+                var margin_x = atlas.margins.x
+                var margin_y = atlas.margins.y
+                var cols = 0
+                var rows = 0
+                if region_w > 0 and region_h > 0:
+                    cols = int((tex_size.x - margin_x + sep_x) / (region_w + sep_x))
+                    rows = int((tex_size.y - margin_y + sep_y) / (region_h + sep_y))
+                source_info["grid_dimensions"] = {{"cols": cols, "rows": rows}}
+            else:
+                source_info["texture_size"] = {{"x": 0, "y": 0}}
+                source_info["grid_dimensions"] = {{"cols": 0, "rows": 0}}
             
             # Count tiles
             var tiles = atlas.get_tiles_count()
@@ -193,6 +226,7 @@ func _init():
     var used_cells = []
     var layer_count = 1
     var used_rect = null
+    var all_cells = []
     
     if is_tilemap:
         layer_count = tilemap.get_layers_count()
@@ -209,24 +243,18 @@ func _init():
                 "tile_count": tilemap.get_used_cells(l).size()
             }})
         
-        # Used cells (first layer only)
-        if layer_count > 0:
-            var cells = tilemap.get_used_cells(0)
-            var limit = min(cells.size(), 100)
-            for i in range(limit):
-                var c = cells[i]
-                used_cells.append({{
-                    "coords": {{"x": c.x, "y": c.y}},
-                    "source_id": tilemap.get_cell_source_id(0, c),
-                    "atlas_coords": {{"x": tilemap.get_cell_atlas_coords(0, c).x, "y": tilemap.get_cell_atlas_coords(0, c).y}},
-                    "alternative_tile": tilemap.get_cell_alternative_tile(0, c)
-                }})
-            used_rect = {{
-                "x": tilemap.get_used_rect().position.x,
-                "y": tilemap.get_used_rect().position.y,
-                "width": tilemap.get_used_rect().size.x,
-                "height": tilemap.get_used_rect().size.y
-            }}
+        # Used cells (first layer only, sample)
+        all_cells = tilemap.get_used_cells(0)
+        var limit = min(all_cells.size(), 100)
+        for i in range(limit):
+            var c = all_cells[i]
+            used_cells.append({{
+                "coords": {{"x": c.x, "y": c.y}},
+                "source_id": tilemap.get_cell_source_id(0, c),
+                "atlas_coords": {{"x": tilemap.get_cell_atlas_coords(0, c).x, "y": tilemap.get_cell_atlas_coords(0, c).y}},
+                "alternative_tile": tilemap.get_cell_alternative_tile(0, c)
+            }})
+        used_rect = tilemap.get_used_rect()
     else:
         # TileMapLayer
         layers.append({{
@@ -241,22 +269,68 @@ func _init():
             "tile_count": tilemap.get_used_cells().size()
         }})
         
-        var cells = tilemap.get_used_cells()
-        var limit = min(cells.size(), 100)
+        all_cells = tilemap.get_used_cells()
+        var limit = min(all_cells.size(), 100)
         for i in range(limit):
-            var c = cells[i]
+            var c = all_cells[i]
             used_cells.append({{
                 "coords": {{"x": c.x, "y": c.y}},
                 "source_id": tilemap.get_cell_source_id(c),
                 "atlas_coords": {{"x": tilemap.get_cell_atlas_coords(c).x, "y": tilemap.get_cell_atlas_coords(c).y}},
                 "alternative_tile": tilemap.get_cell_alternative_tile(c)
             }})
-        used_rect = {{
-            "x": tilemap.get_used_rect().position.x,
-            "y": tilemap.get_used_rect().position.y,
-            "width": tilemap.get_used_rect().size.x,
-            "height": tilemap.get_used_rect().size.y
+        used_rect = tilemap.get_used_rect()
+    
+    # Build cell lookup for ASCII map
+    var cell_lookup = {{}}
+    for c in all_cells:
+        var src_id = 0
+        var atlas_c = Vector2i(-1, -1)
+        if is_tilemap:
+            src_id = tilemap.get_cell_source_id(0, c)
+            atlas_c = tilemap.get_cell_atlas_coords(0, c)
+        else:
+            src_id = tilemap.get_cell_source_id(c)
+            atlas_c = tilemap.get_cell_atlas_coords(c)
+        cell_lookup[Vector2i(c.x, c.y)] = {{
+            "source_id": src_id,
+            "atlas_coords": atlas_c
         }}
+    
+    # Build ASCII map (used_rect is Rect2i, NOT Dictionary)
+    var ascii_chars = " .-+=*#%@ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    var ascii_lines = []
+    var ascii_map_truncated = false
+    if used_rect != null and used_rect.size.x > 0 and used_rect.size.y > 0:
+        var max_w = 80
+        var max_h = 40
+        var start_x = used_rect.position.x
+        var start_y = used_rect.position.y
+        var end_x = used_rect.position.x + used_rect.size.x
+        var end_y = used_rect.position.y + used_rect.size.y
+        var step_x = 1
+        var step_y = 1
+        
+        if used_rect.size.x > max_w:
+            step_x = int(used_rect.size.x / max_w) + 1
+            ascii_map_truncated = true
+        if used_rect.size.y > max_h:
+            step_y = int(used_rect.size.y / max_h) + 1
+            ascii_map_truncated = true
+        
+        for y in range(start_y, end_y, step_y):
+            var line = ""
+            for x in range(start_x, end_x, step_x):
+                var key = Vector2i(x, y)
+                if cell_lookup.has(key):
+                    var info = cell_lookup[key]
+                    var src = info.source_id
+                    var atlas = info.atlas_coords
+                    var idx = abs((src * 100 + atlas.x * 10 + atlas.y)) % ascii_chars.length()
+                    line += ascii_chars[idx]
+                else:
+                    line += " "
+            ascii_lines.append(line)
     
     # TileSet info
     var tileset_info = {{}}
@@ -272,9 +346,11 @@ func _init():
         "node_type": "TileMap" if is_tilemap else "TileMapLayer",
         "layer_count": layer_count,
         "layers": layers,
-        "used_cells_count": used_cells.size(),
+        "used_cells_count": all_cells.size(),
         "used_cells_sample": used_cells,
-        "used_rect": used_rect,
+        "used_rect": {{"x": used_rect.position.x, "y": used_rect.position.y, "width": used_rect.size.x, "height": used_rect.size.y}} if used_rect != null else null,
+        "ascii_lines": ascii_lines,
+        "ascii_map_truncated": ascii_map_truncated,
         "tileset": tileset_info
     }}
     
@@ -732,6 +808,212 @@ func _init():
     quit()
 '''
 
+# Script para renderizar atlas del TileSet con grid numerado
+RENDER_TILESET_ATLAS_SCRIPT = '''
+extends SceneTree
+
+func _generate_ascii_preview(image, max_width: int = 80, max_height: int = 40) -> String:
+    var w = image.get_width()
+    var h = image.get_height()
+    var step_x = max(1, w / max_width)
+    var step_y = max(1, h / max_height)
+    var chars = " .:-=+*#%@"
+    var result = ""
+    for y in range(0, h, step_y):
+        var line = ""
+        for x in range(0, w, step_x):
+            var color = image.get_pixel(x, y)
+            var brightness = (color.r + color.g + color.b) / 3.0
+            var idx = int(brightness * (chars.length() - 1))
+            line += chars[idx]
+        result += line + "\\n"
+    return result
+
+func _init():
+    var tileset_path = "{tileset_path}"
+    var output_path = "{output_path}"
+    var format = "{format}"
+    var quality = {quality}
+    var return_preview = {return_preview}
+    
+    if DisplayServer.get_name() == "headless":
+        print("TEST_OUTPUT: " + JSON.stringify({{
+            "success": false,
+            "error": "Cannot render atlas in headless mode. Use a project with display server enabled."
+        }}))
+        quit()
+        return
+    
+    var tileset = load(tileset_path)
+    if tileset == null or not (tileset is TileSet):
+        print("TEST_OUTPUT: " + JSON.stringify({{
+            "success": false,
+            "error": "Failed to load TileSet: " + tileset_path
+        }}))
+        quit()
+        return
+    
+    # Find first atlas source
+    var atlas_source = null
+    var source_id = -1
+    for i in range(tileset.get_source_count()):
+        var sid = tileset.get_source_id(i)
+        var source = tileset.get_source(sid)
+        if source is TileSetAtlasSource:
+            atlas_source = source
+            source_id = sid
+            break
+    
+    if atlas_source == null or atlas_source.texture == null:
+        print("TEST_OUTPUT: " + JSON.stringify({{
+            "success": false,
+            "error": "No atlas source with texture found in TileSet"
+        }}))
+        quit()
+        return
+    
+    var texture = atlas_source.texture
+    var tex_size = texture.get_size()
+    var tile_size = atlas_source.texture_region_size
+    var margin = Vector2i(40, 30)
+    
+    # Grid dimensions
+    var cols = 0
+    var rows = 0
+    if tile_size.x > 0 and tile_size.y > 0:
+        cols = int((tex_size.x - atlas_source.margins.x + atlas_source.separation.x) / (tile_size.x + atlas_source.separation.x))
+        rows = int((tex_size.y - atlas_source.margins.y + atlas_source.separation.y) / (tile_size.y + atlas_source.separation.y))
+    
+    # Create viewport
+    var viewport = SubViewport.new()
+    viewport.size = Vector2i(tex_size.x + margin.x, tex_size.y + margin.y)
+    viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+    get_root().add_child(viewport)
+    
+    # Background
+    var bg = ColorRect.new()
+    bg.color = Color(0.1, 0.1, 0.1, 1.0)
+    bg.size = viewport.size
+    viewport.add_child(bg)
+    
+    # Atlas texture
+    var sprite = TextureRect.new()
+    sprite.texture = texture
+    sprite.position = Vector2(margin.x, margin.y)
+    viewport.add_child(sprite)
+    
+    # Grid lines and labels
+    var grid_color = Color(1, 0, 0, 0.5)
+    var text_color = Color(1, 1, 1, 1)
+    
+    # Vertical lines and X labels
+    for x in range(0, int(tex_size.x) + 1, int(tile_size.x)):
+        var line = Line2D.new()
+        line.default_color = grid_color
+        line.width = 1
+        line.points = PackedVector2Array([
+            Vector2(margin.x + x, margin.y),
+            Vector2(margin.x + x, margin.y + tex_size.y)
+        ])
+        viewport.add_child(line)
+        
+        if x < tex_size.x:
+            var label = Label.new()
+            label.text = str(x / int(tile_size.x))
+            label.position = Vector2(margin.x + x + 2, 2)
+            label.add_theme_color_override("font_color", text_color)
+            label.add_theme_font_size_override("font_size", 10)
+            viewport.add_child(label)
+    
+    # Horizontal lines and Y labels
+    for y in range(0, int(tex_size.y) + 1, int(tile_size.y)):
+        var line = Line2D.new()
+        line.default_color = grid_color
+        line.width = 1
+        line.points = PackedVector2Array([
+            Vector2(margin.x, margin.y + y),
+            Vector2(margin.x + tex_size.x, margin.y + y)
+        ])
+        viewport.add_child(line)
+        
+        if y < tex_size.y:
+            var label = Label.new()
+            label.text = str(y / int(tile_size.y))
+            label.position = Vector2(2, margin.y + y + 2)
+            label.add_theme_color_override("font_color", text_color)
+            label.add_theme_font_size_override("font_size", 10)
+            viewport.add_child(label)
+    
+    # Wait for render
+    for i in range(3):
+        await self.process_frame
+    
+    # Capture
+    var captured = viewport.get_texture().get_image()
+    
+    # Save
+    var err = OK
+    if format == "jpg" or format == "jpeg":
+        var buffer = captured.save_jpg_to_buffer(quality)
+        var file = FileAccess.open(output_path, FileAccess.WRITE)
+        if file:
+            file.store_buffer(buffer)
+            file.close()
+        else:
+            err = FAILED
+    elif format == "webp":
+        err = captured.save_webp(output_path, true, quality)
+    else:
+        err = captured.save_png(output_path)
+    
+    if err == OK:
+        var result = {{
+            "success": true,
+            "image_path": output_path,
+            "resolution": [captured.get_width(), captured.get_height()],
+            "tileset_path": tileset_path,
+            "source_id": source_id,
+            "texture_size": {{"x": tex_size.x, "y": tex_size.y}},
+            "tile_size": {{"x": tile_size.x, "y": tile_size.y}},
+            "grid_dimensions": {{"cols": cols, "rows": rows}},
+            "format": format
+        }}
+        if return_preview:
+            result["preview_ascii"] = _generate_ascii_preview(captured, 80, 40)
+        print("TEST_OUTPUT: " + JSON.stringify(result))
+    else:
+        print("TEST_OUTPUT: " + JSON.stringify({{
+            "success": false,
+            "error": "Failed to save atlas image, error code: " + str(err)
+        }}))
+    
+    quit()
+'''
+
+
+# ==================== HELPER ====================
+
+def _extract_test_output(result: dict[str, Any]) -> Optional[dict[str, Any]]:
+    """Extract TEST_OUTPUT from run_command result (for render_tileset_atlas)."""
+    for line in result.get("prints", []):
+        if line.startswith("TEST_OUTPUT:"):
+            try:
+                return json.loads(line[12:].strip())
+            except json.JSONDecodeError:
+                continue
+    return None
+
+
+def _add_visual_warning(response: dict[str, Any]) -> dict[str, Any]:
+    """Add anti-hallucination warning to successful visual tool responses."""
+    if response.get("success"):
+        response["agent_visual_access"] = False
+        response["user_action_required"] = VISUAL_ACCESS_WARNING
+    return response
+
+
+# ==================== TOOLS ====================
+
 
 def inspect_tileset(
     project_path: str,
@@ -743,7 +1025,7 @@ def inspect_tileset(
     Inspect a TileSet resource and return detailed information.
 
     Uses Godot runtime to load the TileSet and extract:
-    - Sources (atlas, scenes) with tile counts
+    - Sources (atlas, scenes) with tile counts, texture sizes, grid dimensions
     - Terrain sets and terrains
     - Patterns
     - Layer counts (physics, navigation, custom data)
@@ -755,7 +1037,8 @@ def inspect_tileset(
         timeout: Maximum seconds to wait.
 
     Returns:
-        Dict with success, tile_size, sources, terrain_sets, patterns, etc.
+        Dict with success, tile_size, sources (with texture_size, grid_dimensions),
+        terrain_sets, patterns, etc.
 
     Example:
         inspect_tileset("D:/MyGame", "res://tilesets/ground.tres")
@@ -788,6 +1071,7 @@ def inspect_tilemap(
     - Layer configuration (name, enabled, z-index, y-sort, modulate)
     - Sample of used cells (first 100)
     - Used rect
+    - ASCII art representation of the tilemap
     - TileSet reference
 
     Args:
@@ -798,7 +1082,8 @@ def inspect_tilemap(
         timeout: Maximum seconds to wait.
 
     Returns:
-        Dict with success, layer_count, layers, used_cells_sample, tileset.
+        Dict with success, layer_count, layers, used_cells_sample, used_rect,
+        ascii_map, ascii_map_truncated, tileset.
 
     Example:
         inspect_tilemap("D:/MyGame", "res://scenes/Level.tscn", "TileMap")
@@ -810,7 +1095,11 @@ def inspect_tilemap(
     result = run_gdscript(project_path, script, godot_path, timeout)
     
     if result.get("test_output") and isinstance(result["test_output"], dict):
-        return result["test_output"]
+        output = result["test_output"]
+        # Build ascii_map from ascii_lines (GDScript can't safely include newlines in JSON)
+        if "ascii_lines" in output and "ascii_map" not in output:
+            output["ascii_map"] = "\n".join(output["ascii_lines"])
+        return output
     
     return {
         "success": False,
@@ -1120,6 +1409,110 @@ def set_tilemap_pattern(
     }
 
 
+def render_tileset_atlas(
+    project_path: str,
+    tileset_path: str,
+    output_path: Optional[str] = None,
+    format: str = "jpeg",
+    quality: float = 0.85,
+    return_preview: bool = False,
+    godot_path: Optional[str] = None,
+    timeout: int = 60,
+) -> dict[str, Any]:
+    """
+    Render an image of the TileSet atlas with a numbered grid overlay.
+
+    Creates a visual reference showing the atlas texture with red grid lines
+    and coordinate labels, making it easy to identify which atlas_coords
+    correspond to which tile visually.
+
+    IMPORTANT: The agent CANNOT see the generated image. If visual analysis is
+    needed, the user must attach the image manually.
+
+    Args:
+        project_path: Absolute path to the Godot project.
+        tileset_path: Path to the TileSet (.tres or res://...).
+        output_path: Where to save the image. If None, uses temp directory.
+        format: Image format: "png", "jpeg" (default), or "webp".
+        quality: JPEG/WebP quality (0.0-1.0). Default: 0.85.
+        return_preview: If True, generates an ASCII art preview.
+        godot_path: Optional path to Godot executable.
+        timeout: Maximum seconds to wait.
+
+    Returns:
+        Dict with success, image_path, resolution, texture_size, tile_size,
+        grid_dimensions, format, and optionally preview_ascii.
+        Includes anti-hallucination warning.
+
+    Example:
+        render_tileset_atlas(
+            project_path="D:/MyGame",
+            tileset_path="res://tilesets/ground.tres",
+            output_path="D:/tmp/atlas.jpg"
+        )
+    """
+    cli = GodotCLIWrapper(godot_path)
+    
+    is_valid, error = cli.validate_project(project_path)
+    if not is_valid:
+        return {"success": False, "error": error}
+    
+    if not output_path:
+        ext = ".jpg" if format in ("jpeg", "jpg") else (".webp" if format == "webp" else ".png")
+        output_path = os.path.join(
+            tempfile.gettempdir(), f"tileset_atlas_{os.getpid()}{ext}"
+        )
+    
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    script = RENDER_TILESET_ATLAS_SCRIPT.format(
+        tileset_path=tileset_path,
+        output_path=output_path.replace("\\", "/"),
+        format=format,
+        quality=quality,
+        return_preview=str(return_preview).lower(),
+    )
+    
+    # Run WITHOUT --headless to allow GPU rendering
+    script_file = os.path.join(tempfile.gettempdir(), f"atlas_script_{os.getpid()}.gd")
+    try:
+        with open(script_file, "w", encoding="utf-8") as f:
+            f.write(script)
+        
+        args = ["--script", script_file]
+        result = cli.run_command(args, project_path=project_path, timeout=timeout)
+        
+        test_output = _extract_test_output(result)
+        
+        if test_output and isinstance(test_output, dict):
+            if test_output.get("success"):
+                return _add_visual_warning(test_output)
+            return test_output
+        
+        for line in result.get("prints", []):
+            if "headless" in line.lower():
+                return {
+                    "success": False,
+                    "error": "Atlas rendering requires a display/GPU.",
+                    "raw_output": result.get("prints", []),
+                }
+        
+        return {
+            "success": False,
+            "error": "Atlas rendering failed",
+            "raw_output": result.get("prints", []),
+            "errors": result.get("errors", []),
+        }
+    
+    finally:
+        try:
+            if os.path.exists(script_file):
+                os.remove(script_file)
+        except:
+            pass
+        cli.cleanup()
+
+
 # ==================== REGISTRATION ====================
 
 
@@ -1134,5 +1527,6 @@ def register_tilemap_tools(mcp) -> None:
     mcp.add_tool(apply_tilemap_terrain)
     mcp.add_tool(create_tilemap_pattern)
     mcp.add_tool(set_tilemap_pattern)
+    mcp.add_tool(render_tileset_atlas)
     
-    logger.info("[OK] 7 tilemap tools registradas")
+    logger.info("[OK] 8 tilemap tools registradas")

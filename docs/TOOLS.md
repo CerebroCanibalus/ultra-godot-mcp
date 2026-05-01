@@ -2,7 +2,7 @@
 
 Todas las herramientas disponibles en Ultra Godot MCP v4.5.0.
 
-**Total: 106 herramientas** organizadas en 8 capas arquitectónicas.
+**Total: 107 herramientas** organizadas en 8 capas arquitectónicas.
 
 ---
 
@@ -22,7 +22,7 @@ Todas las herramientas disponibles en Ultra Godot MCP v4.5.0.
 | **CLI Bridge** | Export | 4 | ✅ |
 | **CLI Bridge** | Runtime | 6 | ✅ |
 | **CLI Bridge** | Import | 2 | ✅ |
-| **CLI Bridge** | Screenshot | 2 | ✅ |
+| **CLI Bridge** | Screenshot | 3 | ✅ |
 | **CLI Bridge** | Movie | 2 | ✅ |
 | **LSP/DAP** | LSP | 4 | ✅ |
 | **LSP/DAP** | DAP | 6 | ✅ |
@@ -36,7 +36,7 @@ Todas las herramientas disponibles en Ultra Godot MCP v4.5.0.
 | **Resource Builder** | Animation | 2 | ❌ |
 | **Resource Builder** | AnimationTree | 3 | ❌ |
 | **Resource Builder** | Assets | 2 | ❌ |
-| **TileMap** | TileMap Tools | 7 | ✅ |
+| **TileMap** | TileMap Tools | 8 | ✅ |
 
 ---
 
@@ -783,8 +783,26 @@ get_import_settings(
 
 ### Screenshot
 
+#### `render_thumbnail`
+Renderiza un thumbnail de una escena usando SubViewport.
+
+```python
+render_thumbnail(
+    project_path: str,
+    scene_path: str,
+    output_path: str = None,
+    resolution: tuple = (1280, 720),
+    wait_frames: int = 3,
+    format: str = "jpeg",       # "png", "jpeg", "webp"
+    quality: float = 0.85,
+    return_preview: bool = False  # True para ASCII art
+) -> dict
+```
+
+**Nota:** Corre Godot SIN `--headless` para permitir rendering GPU. Puede aparecer brevemente una ventana.
+
 #### `capture_scene_frame`
-Captura un frame específico de una escena ejecutándose.
+Captura un frame específico de una escena.
 
 ```python
 capture_scene_frame(
@@ -792,11 +810,14 @@ capture_scene_frame(
     scene_path: str,
     frame_number: int = 1,
     output_path: str = None,
-    resolution: tuple = None
+    resolution: tuple = (1280, 720),
+    format: str = "jpeg",
+    quality: float = 0.85,
+    return_preview: bool = False
 ) -> dict
 ```
 
-**Nota:** Usa `--write-movie` internamente. Requiere ejecutar la escena.
+**Nota:** Usa SubViewport internamente. No requiere movie writer.
 
 #### `capture_scene_sequence`
 Captura una secuencia de frames.
@@ -807,7 +828,11 @@ capture_scene_sequence(
     scene_path: str,
     frame_count: int = 30,
     output_dir: str = None,
-    fps: int = 60
+    fps: int = 60,
+    resolution: tuple = (1280, 720),
+    format: str = "jpeg",
+    quality: float = 0.85,
+    return_preview: bool = False
 ) -> dict
 ```
 
@@ -1954,14 +1979,14 @@ create_tile_set(
 
 ---
 
-## Capa 8: TileMap Tools (7 herramientas) — Requiere Godot
+## Capa 8: TileMap Tools (8 herramientas) — Requiere Godot
 
 > Usa la API real de Godot (`run_gdscript`) para inspeccionar y manipular TileMaps/TileSets.
 > Soporta `TileMap` (deprecated) y `TileMapLayer` (Godot 4.6+).
 > Ver documentación completa en [TILEMAP_TOOLS.md](TILEMAP_TOOLS.md).
 
 ### `inspect_tileset`
-Inspeccionar TileSet: sources, tiles, atlas, terrain sets, patterns.
+Inspeccionar TileSet: sources, tiles, atlas, terrain sets, patterns, texture_size, grid_dimensions.
 
 ```python
 inspect_tileset(
@@ -1971,7 +1996,7 @@ inspect_tileset(
 ```
 
 ### `inspect_tilemap`
-Inspeccionar TileMap/TileMapLayer: celdas usadas, bounds, layers.
+Inspeccionar TileMap/TileMapLayer: celdas usadas, bounds, layers, ascii_map.
 
 ```python
 inspect_tilemap(
@@ -2043,8 +2068,22 @@ set_tilemap_pattern(
 )
 ```
 
+### `render_tileset_atlas`
+Capturar imagen del atlas con grid numerado.
+
+```python
+render_tileset_atlas(
+    project_path="D:/MyGame",
+    tileset_path="res://tilesets/ground.tres",
+    output_path="D:/tmp/atlas.jpg",
+    format="jpeg",
+    quality=0.85,
+    return_preview=False,
+)
+```
+
 ---
 
-*Documento de herramientas v4.5.0*
+*Documento de herramientas v4.5.1*
 *Fecha: 2026-04-30*
-*Total: 106 herramientas*
+*Total: 107 herramientas*

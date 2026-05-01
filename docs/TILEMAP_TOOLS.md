@@ -98,6 +98,8 @@ inspect_tileset(
       "has_tiles": true,
       "tile_count": 56,
       "texture": "res://assets/tiles.png",
+      "texture_size": {"x": 256, "y": 256},
+      "grid_dimensions": {"cols": 16, "rows": 16},
       "margins": {"x": 0, "y": 0},
       "separation": {"x": 0, "y": 0},
       "texture_region_size": {"x": 16, "y": 16},
@@ -165,6 +167,8 @@ inspect_tilemap(
   ],
   "used_cells_count": 313,
   "used_rect": {"x": 0, "y": 0, "width": 20, "height": 16},
+  "ascii_map": "TnSnnnnnnnnTnnnnnnn%\nVrrrrrrprrrVrrrrrrrr\n...",
+  "ascii_map_truncated": false,
   "tileset": "res://tilesets/bunker_tileset.tres"
 }
 ```
@@ -325,6 +329,48 @@ set_tilemap_pattern(
 ```
 
 **Retorna:** `{"success": true, "position": {"x": 10, "y": 5}, "pattern_size": {"x": 4, "y": 4}}`
+
+---
+
+### `render_tileset_atlas`
+
+Capturar una imagen del atlas de un TileSet con grid numerado superpuesto.
+
+```python
+render_tileset_atlas(
+    project_path="D:/MyGame",
+    tileset_path="res://tilesets/ground.tres",
+    output_path="D:/tmp/atlas.jpg",  # opcional, usa temp por defecto
+    format="jpeg",                   # "png", "jpeg", "webp"
+    quality=0.85,
+    return_preview=False,            # True para ASCII art del atlas
+    timeout=60
+)
+```
+
+**Retorna:**
+```json
+{
+  "success": true,
+  "image_path": "D:/tmp/atlas.jpg",
+  "resolution": [433, 257],
+  "source_id": 2,
+  "texture_size": {"x": 353, "y": 225},
+  "tile_size": {"x": 32, "y": 32},
+  "grid_dimensions": {"cols": 11, "rows": 7},
+  "format": "jpeg",
+  "agent_visual_access": false,
+  "user_action_required": "⚠️ ATENCIÓN AGENTE: No tienes acceso visual..."
+}
+```
+
+**Características:**
+- Dibuja líneas de grid rojas sobre la textura del atlas
+- Etiqueta cada celda con sus coordenadas (0, 1, 2...)
+- Fondo oscuro para contraste
+- Ideal para que el usuario identifique visualmente qué `atlas_coords` usar
+
+> **⚠️ El agente NO puede ver la imagen.** Si necesitas describir los tiles, pide al usuario que adjunte la imagen. O usa `return_preview=True` para obtener un ASCII art aproximado.
 
 ---
 
