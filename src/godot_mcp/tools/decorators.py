@@ -11,10 +11,13 @@ import functools
 import logging
 from typing import Any, Callable, Optional, TypeVar
 
-# Importar desde session_tools para compartir la misma instancia
-from godot_mcp.tools.session_tools import get_session_manager
-
 logger = logging.getLogger(__name__)
+
+
+def _get_session_manager():
+    """Importación lazy para evitar circular imports."""
+    from godot_mcp.tools.session_tools import get_session_manager
+    return get_session_manager()
 
 
 # ==================== DECORADOR @require_session ====================
@@ -63,7 +66,7 @@ def require_session(func: Callable[..., T]) -> Callable[..., T]:
 
         # Validar que la sesión existe en el manager
         try:
-            manager = get_session_manager()
+            manager = _get_session_manager()
             session = manager.get_session(session_id)
 
             if session is None:
@@ -116,7 +119,7 @@ def require_session_with_project(func: Callable[..., T]) -> Callable[..., T]:
             }
 
         # Validar sesión
-        manager = get_session_manager()
+        manager = _get_session_manager()
         session = manager.get_session(session_id)
 
         if session is None:

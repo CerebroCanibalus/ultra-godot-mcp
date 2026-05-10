@@ -282,11 +282,26 @@ def run_debug_scene(
             "godot_path": godot_exe,
             "log_file": log_file,
         }
-    except Exception as e:
+    except FileNotFoundError as e:
         return {
             "success": False,
-            "error": f"Failed to run Godot: {e}",
+            "error": f"Godot executable not found: {e}",
             "godot_path": godot_exe,
+            "log_file": log_file,
+        }
+    except PermissionError as e:
+        return {
+            "success": False,
+            "error": f"Permission denied: {e}",
+            "godot_path": godot_exe,
+            "log_file": log_file,
+        }
+    except OSError as e:
+        return {
+            "success": False,
+            "error": f"OS error: {e}",
+            "godot_path": godot_exe,
+            "log_file": log_file,
         }
 
 
@@ -379,6 +394,21 @@ def check_script_syntax(
         return {
             "success": False,
             "error": f"Godot timed out after {timeout} seconds",
+        }
+    except FileNotFoundError as e:
+        return {
+            "success": False,
+            "error": f"Godot executable not found: {e}",
+        }
+    except PermissionError as e:
+        return {
+            "success": False,
+            "error": f"Permission denied: {e}",
+        }
+    except OSError as e:
+        return {
+            "success": False,
+            "error": f"OS error: {e}",
         }
     except Exception as e:
         return {

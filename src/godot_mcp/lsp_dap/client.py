@@ -76,7 +76,7 @@ class GodotRPCClient:
         if self.socket:
             try:
                 self.socket.close()
-            except:
+            except OSError:
                 pass
             self.socket = None
         

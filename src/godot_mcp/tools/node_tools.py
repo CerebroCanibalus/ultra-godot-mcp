@@ -193,10 +193,16 @@ def _mark_scene_dirty(scene_path: str) -> None:
     """Mark a scene as dirty in the active session for commit tracking.
 
     This ensures that changes made by tools are tracked and can be
-    committed via commit_session().
+    committed via commit_session(). Also invalidates the scene cache.
     """
     try:
         from godot_mcp.tools.session_tools import get_session_manager
+        from godot_mcp.core.cache import get_cache
+
+        # Invalidate cache immediately to prevent stale data
+        cache = get_cache()
+        cache.invalidate(scene_path)
+        logger.debug(f"Invalidated cache for: {scene_path}")
 
         manager = get_session_manager()
         # Find any session that has this scene loaded or mark it dirty

@@ -566,25 +566,6 @@ class Scene:
             "resolved_paths": resolved_count,
             "fuzzy_matched": fuzzy_count,
         }
-        remapped_count = 0
-        for node in self.nodes:
-            for key, value in node.properties.items():
-                remapped_count += _remap_ext_refs(value)
-
-        # Also remap sub-resource properties
-        for sub in self.sub_resources:
-            for key, value in sub.properties.items():
-                remapped_count += _remap_ext_refs(value)
-
-        # Remove duplicates (in reverse order to preserve indices)
-        for i in reversed(duplicates_to_remove):
-            self.ext_resources.pop(i)
-
-        return {
-            "removed": len(duplicates_to_remove),
-            "remapped": remapped_count,
-            "kept": len(self.ext_resources),
-        }
 
 
 # ============ PARSING FUNCTIONS ============
@@ -679,7 +660,7 @@ def _parse_node_header(line: str) -> dict:
                 result["groups"] = parsed.get("items", [])
             else:
                 result["groups"] = parsed
-        except Exception:
+        except (ValueError, SyntaxError):
             result["groups"] = []
         # Remove groups from content to avoid double-parsing by regex
         content = re.sub(r'groups=\[([^\]]*)\]', '', content)
@@ -716,7 +697,7 @@ def _parse_node_header(line: str) -> dict:
             # groups is a list like ["group1", "group2"]
             try:
                 result[key] = _parse_gdscript_value(value)
-            except Exception:
+            except (ValueError, SyntaxError):
                 result[key] = []
         elif value == "true":
             result[key] = True
@@ -814,15 +795,16 @@ def _parse_gdscript_value(value_str: str) -> Any:
 
     # Handle Vector4(x, y, z, w)
     if value_str.startswith("Vector4(") and value_str.endswith(")"):
-        inner = value_str[7:-1]
-        parts = inner.split(", ")
-        return {
-            "type": "Vector4",
-            "x": float(parts[0]),
-            "y": float(parts[1]),
-            "z": float(parts[2]),
-            "w": float(parts[3]),
-        }
+        inner = value_str[8:-1]  # "Vector4(" is 8 chars
+        parts = [p.strip() for p in inner.split(",")]
+        if len(parts) >= 4:
+            return {
+                "type": "Vector4",
+                "x": float(parts[0]),
+                "y": float(parts[1]),
+                "z": float(parts[2]),
+                "w": float(parts[3]),
+            }
 
     # Handle Transform2D(angle, origin, x, y) or Transform2D(Vector2, Vector2, Vector2)
     if value_str.startswith("Transform2D(") and value_str.endswith(")"):

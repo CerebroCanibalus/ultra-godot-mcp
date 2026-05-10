@@ -264,10 +264,22 @@ class GodotCLIWrapper:
                 "error": f"Godot timed out after {timeout} seconds",
                 "godot_path": self.godot_path,
             }
-        except Exception as e:
+        except FileNotFoundError as e:
             return {
                 "success": False,
-                "error": f"Failed to run Godot: {e}",
+                "error": f"Godot executable not found: {e}",
+                "godot_path": self.godot_path,
+            }
+        except PermissionError as e:
+            return {
+                "success": False,
+                "error": f"Permission denied running Godot: {e}",
+                "godot_path": self.godot_path,
+            }
+        except OSError as e:
+            return {
+                "success": False,
+                "error": f"OS error running Godot: {e}",
                 "godot_path": self.godot_path,
             }
 

@@ -930,21 +930,36 @@ class SessionManager:
         if not session.godot_process:
             return False
 
+        pid = session.godot_process_pid
+        process = session.godot_process
+
         try:
+            # Check if process is still alive
+            if process.poll() is not None:
+                logger.debug(f"Godot process {pid} already exited")
+                return True
+
             # Try graceful termination first
-            session.godot_process.terminate()
+            process.terminate()
             try:
-                session.godot_process.wait(timeout=5)
+                process.wait(timeout=5)
+                logger.info(f"Stopped Godot headless gracefully (PID: {pid})")
+                return True
             except subprocess.TimeoutExpired:
                 # Force kill if not terminated
-                session.godot_process.kill()
-                session.godot_process.wait(timeout=2)
+                try:
+                    process.kill()
+                    process.wait(timeout=2)
+                    logger.info(f"Killed Godot headless (PID: {pid})")
+                    return True
+                except subprocess.TimeoutExpired:
+                    logger.error(f"Failed to kill Godot process {pid}")
+                    return False
 
-            logger.info(
-                f"Stopped Godot headless (PID: {session.godot_process_pid})"
-            )
+        except OSError as e:
+            # Process already gone or permission error
+            logger.debug(f"Godot process {pid} already gone: {e}")
             return True
-
         except Exception as e:
             logger.error(f"Error stopping Godot: {e}")
             return False
