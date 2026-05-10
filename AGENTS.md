@@ -423,10 +423,13 @@ preview = preview_array_operation(
 - Para diagnosticar errores antes de ejecutar
 
 ### Requisitos
-- **Godot Editor DEBE estar abierto** (puerto 6005)
+- **Godot Editor DEBE estar abierto** (puerto 6005) O usar el **Bridge LSP integrado**
 - Proyecto Godot válido con `project.godot`
 
-### Herramientas MCP Usadas
+### Modos de Operación
+
+#### Modo 1: Tools MCP (para agentes IA)
+Las tools LSP se usan desde el MCP cuando Godot Editor está abierto:
 ```python
 # LSP Tools (requiere Godot Editor abierto)
 - mcp__godot__lsp_get_completions    # Autocompletado en posición
@@ -435,12 +438,37 @@ preview = preview_array_operation(
 - mcp__godot__lsp_get_diagnostics    # Errores y warnings
 ```
 
+#### Modo 2: Bridge LSP para OpenCode (autocompletado en editor)
+El MCP incluye un **bridge nativo** que conecta OpenCode ↔ Godot LSP:
+```
+OpenCode (stdio) ←→ [godot_lsp_bridge.py] ←→ Godot Editor :6005 (TCP)
+```
+
+**Configuración en `opencode.jsonc`:**
+```json
+"lsp": {
+    "gdscript": {
+        "command": [
+            "python",
+            "D:/Mis Juegos/GodotMCP/godot-mcp-python/scripts/godot_lsp_bridge.py"
+        ],
+        "extensions": [".gd", ".gdshader"]
+    }
+}
+```
+
+**Características del bridge:**
+- ✅ Sin dependencias (solo Python stdlib)
+- ✅ Reescribe `languageId: "plaintext"` → `"gdscript"`
+- ✅ Reconexión automática si Godot se reinicia
+- ✅ Sin auto-lanzamiento (usa SessionManager del MCP)
+
 ### Flujo de Trabajo
 ```
-1. Verificar que Godot Editor esté abierto
-2. Proporr ruta del archivo GDScript
-3. Especificar línea y columna (0-based)
-4. Obtener resultados del LSP
+1. Verificar que Godot Editor esté abierto (o lanzar vía SessionManager)
+2. Configurar bridge en opencode.jsonc (una sola vez)
+3. Abrir archivo .gd en OpenCode
+4. Autocompletado, hover y diagnostics funcionan automáticamente
 ```
 
 ### Ejemplo de Uso

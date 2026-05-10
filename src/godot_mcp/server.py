@@ -54,6 +54,8 @@ REGISTERED_MODULES: List[Tuple[str, str]] = [
     ("tools.resource_builder_tools", "register_resource_builder_tools"),
     # Capa 8: TileMap Inspector & Editor (v4.4.0)
     ("tools.tilemap_tools", "register_tilemap_tools"),
+    # Capa 9: Global Configuration (v4.5.0)
+    ("tools.global_tools", "register_global_tools"),
 ]
 
 

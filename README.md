@@ -175,22 +175,35 @@ python -m godot_mcp.server
 
 ### 3. Configurar LSP/DAP (opcional, para autocompletado y debugging)
 
-El LSP (Language Server Protocol) y DAP (Debug Adapter Protocol) son **features nativas de Godot** — no requieren instalación adicional. Solo necesitas:
+El LSP (Language Server Protocol) y DAP (Debug Adapter Protocol) son **features nativas de Godot**.
 
-**Habilitar LSP (autocompletado, hover, símbolos):**
-1. Abre tu proyecto en Godot Editor
-2. Ve a `Editor > Editor Settings > Network > Language Server`
-3. Activa **"Enable Language Server"**
-4. Verifica que el puerto sea **6005**
-5. Reinicia Godot Editor
+**Habilitar LSP en Godot Editor:**
+1. `Editor > Editor Settings > Network > Language Server`
+2. Activa **"Enable Language Server"** (puerto 6005)
+3. Reinicia Godot Editor
 
-**Habilitar DAP (breakpoints, stepping):**
-1. Ve a `Editor > Editor Settings > Network > Debug Adapter`
-2. Activa **"Enable Debug Adapter"**
-3. Verifica que el puerto sea **6006**
-4. Reinicia Godot Editor
+**Habilitar DAP:**
+1. `Editor > Editor Settings > Network > Debug Adapter`
+2. Activa **"Enable Debug Adapter"** (puerto 6006)
+3. Reinicia Godot Editor
 
-> **Nota:** El LSP/DAP solo funciona cuando Godot Editor está **abierto** con tu proyecto cargado. Si no lo necesitas, las otras 77 herramientas funcionan sin él.
+**Configurar Bridge LSP en OpenCode:**
+Añade a tu `opencode.jsonc`:
+```json
+{
+  "lsp": {
+    "gdscript": {
+      "command": [
+        "python",
+        "D:/Mis Juegos/GodotMCP/godot-mcp-python/scripts/godot_lsp_bridge.py"
+      ],
+      "extensions": [".gd", ".gdshader"]
+    }
+  }
+}
+```
+
+> **Nota:** El LSP/DAP requiere Godot Editor abierto. El bridge integrado conecta OpenCode (stdio) con Godot (TCP:6005). Sin dependencias de Node.js.
 
 ### 4. Usar con tu asistente IA
 
@@ -206,254 +219,30 @@ El LSP (Language Server Protocol) y DAP (Debug Adapter Protocol) son **features 
 
 ---
 
-## 🛠️ Herramientas
+## 🛠️ Herramientas (107 en 8 capas)
 
-### Capa 1: Core (45 tools) — Sin Godot
+| Capa | Herramientas | Requiere Godot |
+|---|---|---|
+| **1. Core** | Sesión, Escenas, Nodos, Recursos, Scripts, Señales, Proyecto, Validación | ❌ |
+| **2. CLI Bridge** | Export, Runtime, Import, Screenshot, Movie | ✅ |
+| **3. LSP/DAP** | Autocompletado, Hover, Breakpoints, Stepping | ✅ Editor abierto |
+| **4. Intelligence** | Dependency Graph, Signal Graph, Code Analysis | ❌ |
+| **5. Skeleton** | Skeleton2D, Skeleton3D, Skinning | ❌ |
+| **6. Array Ops** | Operaciones quirúrgicas en arrays de escenas | ❌ |
+| **7. Resource Builder** | Animation, StateMachine, BlendSpace, SpriteFrames, TileSet | ❌ |
+| **8. TileMap** | Inspect, Edit, Terrain, Patterns | ✅ |
 
-#### Sesión
-| Herramienta | Descripción |
-|---|---|
-| `start_session` | Crear sesión para un proyecto Godot |
-| `end_session` | Cerrar sesión y guardar cambios |
-| `get_active_session` | Obtener la sesión activa actual |
-| `get_session_info` | Información de una sesión |
-| `list_sessions` | Listar sesiones activas |
-| `commit_session` | Guardar cambios a disco |
-| `discard_changes` | Descartar cambios sin guardar |
+> 📖 **Referencia completa:** Ver [TOOLS.md](docs/TOOLS.md) para documentación detallada de las 107 herramientas.
 
-#### Escenas
-| Herramienta | Descripción |
-|---|---|
-| `create_scene` | Crear nueva escena `.tscn` (soporta `inherits` para escenas heredadas) |
-| `get_scene_tree` | Obtener jerarquía completa de nodos |
-| `save_scene` | Guardar escena a disco |
-| `list_scenes` | Listar todas las escenas del proyecto |
-| `instantiate_scene` | Instanciar una escena como nodo hijo (soporta `editable_children`) |
-| `modify_scene` | Modificar tipo/nombre del root de una escena |
-| `set_editable_paths` | Marcar hijos de instancias como editables (Godot 4.x) |
-| `remove_ext_resource` | Eliminar ExtResource huérfano |
-| `remove_sub_resource` | Eliminar SubResource huérfano |
+### Destacados
 
-#### Nodos
-| Herramienta | Descripción |
-|---|---|
-| `add_node` | Añadir nodo (soporta `unique_name_in_owner`, `owner`) |
-| `remove_node` | Eliminar nodo |
-| `update_node` | Actualizar propiedades de un nodo |
-| `rename_node` | Renombrar nodo |
-| `move_node` | Reparentar nodo |
-| `duplicate_node` | Duplicar nodo y sus hijos |
-| `find_nodes` | Buscar nodos por nombre o tipo (con fuzzy matching) |
-| `get_node_properties` | Obtener todas las propiedades de un nodo |
-| `add_node_groups` | Añadir grupos a un nodo |
-| `remove_node_groups` | Eliminar grupos de un nodo |
+**🔥 Inspector Unificado:** `set_node_properties()` maneja automáticamente texturas, shapes, scripts, colores, vectores, enums y valores simples.
 
-#### 🔥 Inspector Unificado
+**🧠 Zero-Godot:** Las capas 1, 4-7 funcionan sin Godot instalado (parser nativo + análisis estático).
 
-```python
-set_node_properties(session_id, scene_path, node_path, properties={...})
-```
+**🎮 Full-Godot:** Las capas 2, 3, 8 usan Godot headless para funcionalidades avanzadas.
 
-Maneja **automáticamente** todos los tipos:
-
-| Tipo | Ejemplo |
-|---|---|
-| **Texturas** | `"texture": "res://sprites/player.png"` → crea ExtResource |
-| **Shapes** | `"shape": {"shape_type": "CapsuleShape2D", "radius": 16.0}` → crea SubResource |
-| **Scripts** | `"script": "res://scripts/player.gd"` → crea ExtResource |
-| **Colores** | `"modulate": {"type": "Color", "r": 1, "g": 0.5, "b": 0.5, "a": 1}` |
-| **Vectores** | `"position": {"type": "Vector2", "x": 100, "y": 200}` |
-| **Enums** | `"motion_mode": "MOTION_MODE_GROUNDED"` |
-| **Simples** | `"text": "Hello", "visible": true` |
-
-#### Recursos
-| Herramienta | Descripción |
-|---|---|
-| `create_resource` | Crear recurso `.tres` |
-| `read_resource` | Leer propiedades de un `.tres` |
-| `update_resource` | Actualizar propiedades de recurso |
-| `add_ext_resource` | Añadir referencia externa a escena |
-| `add_sub_resource` | Crear recurso embebido en escena |
-| `list_resources` | Listar recursos del proyecto |
-| `get_uid` | Obtener UID de recurso (Godot 4.4+) |
-| `update_project_uids` | Actualizar todos los UIDs del proyecto |
-
-#### Scripts y Señales
-| Herramienta | Descripción |
-|---|---|
-| `set_script` | Adjuntar script `.gd` a un nodo |
-| `connect_signal` | Conectar señal (valida métodos en scripts) |
-| `disconnect_signal` | Desconectar señal |
-| `list_signals` | Listar todas las conexiones de señales |
-
-#### Proyecto
-| Herramienta | Descripción |
-|---|---|
-| `get_project_info` | Metadata del proyecto |
-| `get_project_structure` | Estructura completa (escenas, scripts, assets) |
-| `find_scripts` | Buscar scripts `.gd` |
-| `find_resources` | Buscar recursos `.tres` |
-| `list_projects` | Encontrar proyectos Godot en un directorio |
-
-#### Validación
-| Herramienta | Descripción |
-|---|---|
-| `validate_tscn` | Validar archivo `.tscn` (parser nativo, sin Godot) |
-| `validate_gdscript` | Validar script `.gd` (API Godot 4.6 + sintaxis real con Godot) |
-| `validate_project` | Validar proyecto completo (parser nativo, sin Godot) |
-
-### Capa 2: Godot CLI Bridge (16 tools) — Requiere Godot
-
-#### Export
-| Herramienta | Descripción |
-|---|---|
-| `export_project` | Exportar proyecto con preset configurado |
-| `list_export_presets` | Listar presets de exportación disponibles |
-| `validate_export_preset` | Validar que un preset existe y es válido |
-| `get_export_log` | Obtener log de la última exportación |
-
-#### Runtime
-| Herramienta | Descripción |
-|---|---|
-| `run_gdscript` | Ejecutar código GDScript arbitrario en headless |
-| `get_scene_info_runtime` | Obtener información de escena cargada en runtime |
-| `get_performance_metrics` | FPS, draw calls, memoria, nodos (ejecuta escena N segundos) |
-| `test_scene_load` | Verificar que una escena carga sin errores |
-| `get_classdb_info` | Obtener información de ClassDB de Godot |
-| `call_group_runtime` | Llamar método en grupo de nodos en escena cargada |
-
-#### Import
-| Herramienta | Descripción |
-|---|---|
-| `reimport_assets` | Reimportar assets del proyecto |
-| `get_import_settings` | Obtener configuración de importación de un asset |
-
-#### Screenshot
-| Herramienta | Descripción |
-|---|---|
-| `capture_scene_frame` | Capturar frame específico de escena ejecutándose |
-| `capture_scene_sequence` | Capturar secuencia de frames |
-
-#### Movie
-| Herramienta | Descripción |
-|---|---|
-| `write_movie` | Grabar video de escena ejecutándose |
-| `write_movie_with_script` | Grabar video con script de setup |
-
-### Capa 3: LSP/DAP Native (10 tools) — Requiere Godot Editor abierto
-
-#### LSP (Language Server Protocol)
-| Herramienta | Descripción |
-|---|---|
-| `lsp_get_completions` | Autocompletado GDScript en posición específica |
-| `lsp_get_hover` | Documentación hover para símbolo |
-| `lsp_get_symbols` | Todos los símbolos de un archivo (clases, métodos, variables) |
-| `lsp_get_diagnostics` | Errores y warnings de un archivo |
-
-#### DAP (Debug Adapter Protocol)
-| Herramienta | Descripción |
-|---|---|
-| `dap_start_debugging` | Iniciar sesión de debugging |
-| `dap_set_breakpoint` | Establecer breakpoint en archivo y línea |
-| `dap_continue` | Continuar ejecución |
-| `dap_step_over` | Step over (ejecuta línea sin entrar a funciones) |
-| `dap_step_into` | Step into (entra a funciones) |
-| `dap_get_stack_trace` | Obtener stack trace con variables |
-
-### Capa 4: Project Intelligence (7 tools) — Sin Godot
-
-#### Dependency Graph
-| Herramienta | Descripción |
-|---|---|
-| `get_dependency_graph` | Grafo de dependencias entre archivos del proyecto |
-| `find_unused_assets` | Encontrar assets no referenciados |
-
-#### Signal Graph
-| Herramienta | Descripción |
-|---|---|
-| `get_signal_graph` | Grafo de conexiones de señales (emisor → receptor) |
-| `find_orphan_signals` | Detectar señales conectadas a métodos inexistentes |
-
-#### Code Analysis
-| Herramienta | Descripción |
-|---|---|
-| `analyze_script` | Métricas de complejidad, funciones, clases, issues |
-| `find_code_smells` | Code smells: funciones largas, complejidad alta, magic numbers |
-| `get_project_metrics` | Métricas agregadas del proyecto completo |
-
-### 🔧 Debug
-> ⚠️ Estas 2 herramientas **sí requieren Godot instalado**. Son las únicas que lanzan el motor.
-
-| Herramienta | Descripción |
-|---|---|
-| `run_debug_scene` | Ejecutar escena en modo headless y capturar errores, warnings y prints |
-| `check_script_syntax` | Verificar sintaxis GDScript con `--check-only` de Godot |
-
-### Capa 5: Skeleton (6 tools) — Sin Godot
-
-#### Skeleton2D
-| Herramienta | Descripción |
-|---|---|
-| `create_skeleton2d` | Crear nodo Skeleton2D en escena |
-| `add_bone2d` | Añadir hueso Bone2D al skeleton |
-| `setup_polygon2d_skinning` | Vincular Polygon2D al skeleton para deformación |
-
-#### Skeleton3D
-| Herramienta | Descripción |
-|---|---|
-| `create_skeleton3d` | Crear nodo Skeleton3D en escena |
-| `add_bone_attachment3d` | Vincular nodos a huesos del skeleton |
-| `setup_mesh_skinning` | Vincular MeshInstance3D al skeleton |
-
-### Capa 6: Array Operations (2 tools) — Sin Godot
-
-| Herramienta | Descripción |
-|---|---|
-| `scene_array_operation` | Modificar arrays en escenas (append/remove/replace/insert/clear) |
-| `preview_array_operation` | Previsualizar cambios en arrays sin aplicarlos |
-
-### Capa 7: Resource Builder (9 tools) — Sin Godot
-
-#### Genéricos
-| Herramienta | Descripción |
-|---|---|
-| `build_resource` | Crear cualquier SubResource genérico |
-| `build_nested_resource` | Crear jerarquías de recursos con referencias cruzadas |
-
-#### Animation
-| Herramienta | Descripción |
-|---|---|
-| `create_animation` | Crear Animation con tracks de keyframes |
-| `create_state_machine` | Crear AnimationNodeStateMachine con estados y transiciones |
-
-#### AnimationTree
-| Herramienta | Descripción |
-|---|---|
-| `create_blend_space_1d` | Crear BlendSpace1D (idle→walk→run) |
-| `create_blend_space_2d` | Crear BlendSpace2D (direcciones 4-way) |
-| `create_blend_tree` | Crear BlendTree (grafo de mezcla) |
-
-#### Assets
-| Herramienta | Descripción |
-|---|---|
- | `create_sprite_frames` | Crear SpriteFrames (animaciones frame-by-frame) |
- | `create_tile_set` | Crear TileSet (atlas + colisiones) |
-
-### Capa 8: TileMap Tools (7 tools) — Requiere Godot
-
-> 🗺️ Usa la **API real de Godot** (`run_gdscript`) para inspeccionar y manipular TileMaps/TileSets. 
-> Soporta tanto `TileMap` como `TileMapLayer` (Godot 4.6). 
-> Los patterns se guardan como `.tres` externos para persistencia.
-
-| Herramienta | Descripción |
-|---|---|
-| `inspect_tileset` | Inspeccionar TileSet: sources, tiles, atlas, terrain sets |
-| `inspect_tilemap` | Inspeccionar TileMap/TileMapLayer: celdas usadas, bounds, layers |
-| `set_tilemap_cells` | Setear o borrar celdas individuales (source_id + atlas_coords) |
-| `set_tilemap_layer_properties` | Configurar layer: z_index, y_sort_enabled, modulate, etc. |
-| `apply_tilemap_terrain` | Aplicar terrain set a un rango de celdas |
-| `create_tilemap_pattern` | Crear pattern desde rango de celdas (guardado como `.tres`) |
-| `set_tilemap_pattern` | Aplicar pattern en posición (usa `pattern_path` o `pattern_index`) |
+**🌉 Bridge LSP:** Incluye `scripts/godot_lsp_bridge.py` para conectar OpenCode ↔ Godot Editor (stdio↔TCP) sin dependencias de Node.js.
 
 ---
 
