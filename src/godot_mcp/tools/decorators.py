@@ -9,9 +9,34 @@ from __future__ import annotations
 
 import functools
 import logging
+import os
 from typing import Any, Callable, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
+
+
+def validate_project_path(project_path: str) -> tuple[bool, Optional[str]]:
+    """Valida que project_path sea un proyecto Godot válido.
+    
+    Args:
+        project_path: Ruta al proyecto
+        
+    Returns:
+        (is_valid, error_message) - Si es válido, error_message es None
+    """
+    if not project_path:
+        return False, "project_path is required"
+    
+    project_path = os.path.abspath(project_path)
+    
+    if not os.path.isdir(project_path):
+        return False, f"Project path not found: {project_path}"
+    
+    project_godot = os.path.join(project_path, "project.godot")
+    if not os.path.isfile(project_godot):
+        return False, f"Not a valid Godot project (no project.godot): {project_path}"
+    
+    return True, None
 
 
 def _get_session_manager():

@@ -883,6 +883,77 @@ def _parse_gdscript_value(value_str: str) -> Any:
             "height": int(float(parts[3])),
         }
 
+    # Handle Packed*Array types
+    if value_str.startswith("PackedByteArray(") and value_str.endswith(")"):
+        inner = value_str[16:-1]  # Remove "PackedByteArray(" and ")"
+        if inner.strip():
+            items = [int(x.strip()) for x in inner.split(",")]
+            return {"type": "PackedByteArray", "items": items}
+        return {"type": "PackedByteArray", "items": []}
+    if value_str.startswith("PackedInt32Array(") and value_str.endswith(")"):
+        inner = value_str[17:-1]  # Remove "PackedInt32Array(" and ")"
+        if inner.strip():
+            items = [int(x.strip()) for x in inner.split(",")]
+            return {"type": "PackedInt32Array", "items": items}
+        return {"type": "PackedInt32Array", "items": []}
+    if value_str.startswith("PackedInt64Array(") and value_str.endswith(")"):
+        inner = value_str[17:-1]  # Remove "PackedInt64Array(" and ")"
+        if inner.strip():
+            items = [int(x.strip()) for x in inner.split(",")]
+            return {"type": "PackedInt64Array", "items": items}
+        return {"type": "PackedInt64Array", "items": []}
+    if value_str.startswith("PackedFloat32Array(") and value_str.endswith(")"):
+        inner = value_str[19:-1]  # Remove "PackedFloat32Array(" and ")"
+        if inner.strip():
+            items = [float(x.strip()) for x in inner.split(",")]
+            return {"type": "PackedFloat32Array", "items": items}
+        return {"type": "PackedFloat32Array", "items": []}
+    if value_str.startswith("PackedFloat64Array(") and value_str.endswith(")"):
+        inner = value_str[19:-1]  # Remove "PackedFloat64Array(" and ")"
+        if inner.strip():
+            items = [float(x.strip()) for x in inner.split(",")]
+            return {"type": "PackedFloat64Array", "items": items}
+        return {"type": "PackedFloat64Array", "items": []}
+    if value_str.startswith("PackedStringArray(") and value_str.endswith(")"):
+        inner = value_str[18:-1]  # Remove "PackedStringArray(" and ")"
+        if inner.strip():
+            items = _parse_array_items(inner)
+            return {"type": "PackedStringArray", "items": items}
+        return {"type": "PackedStringArray", "items": []}
+    if value_str.startswith("PackedVector2Array(") and value_str.endswith(")"):
+        inner = value_str[19:-1]  # Remove "PackedVector2Array(" and ")"
+        if inner.strip():
+            items = []
+            for v_str in inner.split("Vector2(")[1:]:  # Split by "Vector2("
+                v_inner = v_str.split(")")[0]
+                v_parts = [p.strip() for p in v_inner.split(",")]
+                items.append({"type": "Vector2", "x": float(v_parts[0]), "y": float(v_parts[1])})
+            return {"type": "PackedVector2Array", "items": items}
+        return {"type": "PackedVector2Array", "items": []}
+    if value_str.startswith("PackedVector3Array(") and value_str.endswith(")"):
+        inner = value_str[19:-1]  # Remove "PackedVector3Array(" and ")"
+        if inner.strip():
+            items = []
+            for v_str in inner.split("Vector3(")[1:]:
+                v_inner = v_str.split(")")[0]
+                v_parts = [p.strip() for p in v_inner.split(",")]
+                items.append({"type": "Vector3", "x": float(v_parts[0]), "y": float(v_parts[1]), "z": float(v_parts[2])})
+            return {"type": "PackedVector3Array", "items": items}
+        return {"type": "PackedVector3Array", "items": []}
+    if value_str.startswith("PackedColorArray(") and value_str.endswith(")"):
+        inner = value_str[17:-1]  # Remove "PackedColorArray(" and ")"
+        if inner.strip():
+            items = []
+            for c_str in inner.split("Color(")[1:]:
+                c_inner = c_str.split(")")[0]
+                c_parts = [p.strip() for p in c_inner.split(",")]
+                c = {"type": "Color", "r": float(c_parts[0]), "g": float(c_parts[1]), "b": float(c_parts[2])}
+                if len(c_parts) == 4:
+                    c["a"] = float(c_parts[3])
+                items.append(c)
+            return {"type": "PackedColorArray", "items": items}
+        return {"type": "PackedColorArray", "items": []}
+
     # Handle typed arrays: Array[Type]([...]) or Array([...])
     if value_str.startswith("Array"):
         # Extract the array content after Array[Type]( or Array(
@@ -1135,6 +1206,39 @@ def _format_gdscript_value(value: Any) -> str:
                 # Typed array: Array[Type]([...])
                 return f"Array[{array_type}]([{', '.join(items)}])"
             return f"[{', '.join(items)}]"
+        # Handle Packed*Array types
+        if value.get("type") == "PackedByteArray":
+            items = [str(i) for i in value.get("items", [])]
+            return f"PackedByteArray({', '.join(items)})"
+        if value.get("type") == "PackedInt32Array":
+            items = [str(i) for i in value.get("items", [])]
+            return f"PackedInt32Array({', '.join(items)})"
+        if value.get("type") == "PackedInt64Array":
+            items = [str(i) for i in value.get("items", [])]
+            return f"PackedInt64Array({', '.join(items)})"
+        if value.get("type") == "PackedFloat32Array":
+            items = [str(i) for i in value.get("items", [])]
+            return f"PackedFloat32Array({', '.join(items)})"
+        if value.get("type") == "PackedFloat64Array":
+            items = [str(i) for i in value.get("items", [])]
+            return f"PackedFloat64Array({', '.join(items)})"
+        if value.get("type") == "PackedStringArray":
+            items = [f'"{i}"' for i in value.get("items", [])]
+            return f"PackedStringArray({', '.join(items)})"
+        if value.get("type") == "PackedVector2Array":
+            items = [f"Vector2({v.get('x', 0)}, {v.get('y', 0)})" for v in value.get("items", [])]
+            return f"PackedVector2Array({', '.join(items)})"
+        if value.get("type") == "PackedVector3Array":
+            items = [f"Vector3({v.get('x', 0)}, {v.get('y', 0)}, {v.get('z', 0)})" for v in value.get("items", [])]
+            return f"PackedVector3Array({', '.join(items)})"
+        if value.get("type") == "PackedColorArray":
+            items = []
+            for c in value.get("items", []):
+                parts = [str(c.get("r", 0)), str(c.get("g", 0)), str(c.get("b", 0))]
+                if "a" in c:
+                    parts.append(str(c.get("a", 1)))
+                items.append(f"Color({', '.join(parts)})")
+            return f"PackedColorArray({', '.join(items)})"
         if value.get("type") == "Dictionary":
             items = {
                 k: _format_gdscript_value(v) for k, v in value.get("items", {}).items()

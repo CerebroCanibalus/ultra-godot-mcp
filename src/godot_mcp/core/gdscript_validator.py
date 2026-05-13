@@ -347,21 +347,39 @@ class GDScriptValidator:
 
         # Agregar errores de Godot
         for error in godot_result.get("errors", []):
-            result.add_issue(
-                error.get("line", 0),
-                "error",
-                f"[Godot] {error.get('message', 'Unknown error')}",
-                error.get("suggestion"),
-            )
+            if isinstance(error, dict):
+                result.add_issue(
+                    error.get("line", 0),
+                    "error",
+                    f"[Godot] {error.get('message', 'Unknown error')}",
+                    error.get("suggestion"),
+                )
+            elif isinstance(error, str):
+                # Handle string errors from debug_tools parser
+                result.add_issue(
+                    0,
+                    "error",
+                    f"[Godot] {error}",
+                    None,
+                )
 
         # Agregar warnings de Godot
         for warning in godot_result.get("warnings", []):
-            result.add_issue(
-                warning.get("line", 0),
-                "warning",
-                f"[Godot] {warning.get('message', 'Unknown warning')}",
-                warning.get("suggestion"),
-            )
+            if isinstance(warning, dict):
+                result.add_issue(
+                    warning.get("line", 0),
+                    "warning",
+                    f"[Godot] {warning.get('message', 'Unknown warning')}",
+                    warning.get("suggestion"),
+                )
+            elif isinstance(warning, str):
+                # Handle string warnings from debug_tools parser
+                result.add_issue(
+                    0,
+                    "warning",
+                    f"[Godot] {warning}",
+                    None,
+                )
 
         # Luego, análisis de API (nuestra capa)
         api_result = self.validate(script_content)

@@ -652,12 +652,26 @@ class SessionManager:
 
             # Escribir a disco desde el workspace
             try:
-                # Usar la función writer si se provee, si no usar el método to_tscn
+                # Generar contenido TSCN
+                tscn_content = scene.to_tscn()
+                
+                # Validación pre-guardado: verificar que el TSCN generado sea parseable
+                try:
+                    from godot_mcp.core.tscn_parser import parse_tscn_string
+                    parse_tscn_string(tscn_content)
+                except Exception as validation_error:
+                    logger.error(
+                        f"TSCN validation failed for {scene_path}: {validation_error}. "
+                        f"Aborting save to prevent file corruption."
+                    )
+                    return False
+                
+                # Usar la función writer si se provee, si no escribir directamente
                 if writer_func:
                     writer_func(scene_path, scene)
                 else:
                     with open(scene_path, "w", encoding="utf-8") as f:
-                        f.write(scene.to_tscn())
+                        f.write(tscn_content)
 
                 # Limpiar dirty flag
                 session.dirty_scenes.discard(scene_path)

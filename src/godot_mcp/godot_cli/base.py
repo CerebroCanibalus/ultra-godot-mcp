@@ -6,6 +6,7 @@ with proper error handling, logging, and temporary file management.
 
 from __future__ import annotations
 
+import atexit
 import os
 import shutil
 import subprocess
@@ -156,6 +157,13 @@ class GodotCLIWrapper:
         """
         self.godot_path = find_godot_executable(godot_path)
         self._temp_files: List[str] = []
+        # Registrar cleanup automático al salir del programa
+        atexit.register(self._cleanup_at_exit)
+    
+    def _cleanup_at_exit(self):
+        """Cleanup handler llamado por atexit."""
+        if self._temp_files:
+            self.cleanup()
 
     def validate_project(self, project_path: str) -> tuple[bool, Optional[str]]:
         """Validate that path is a valid Godot project.

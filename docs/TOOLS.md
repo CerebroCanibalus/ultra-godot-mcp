@@ -1,8 +1,8 @@
 # 🛠️ Referencia de Herramientas MCP
 
-Todas las herramientas disponibles en Ultra Godot MCP v4.5.0.
+Todas las herramientas disponibles en Ultra Godot MCP v4.6.0.
 
-**Total: 107 herramientas** organizadas en 8 capas arquitectónicas.
+**Total: 111 herramientas** organizadas en 9 capas arquitectónicas.
 
 ---
 
@@ -37,6 +37,7 @@ Todas las herramientas disponibles en Ultra Godot MCP v4.5.0.
 | **Resource Builder** | AnimationTree | 3 | ❌ |
 | **Resource Builder** | Assets | 2 | ❌ |
 | **TileMap** | TileMap Tools | 8 | ✅ |
+| **Shaders** | Shader Tools | 4 | ❌ |
 
 ---
 
@@ -2084,6 +2085,228 @@ render_tileset_atlas(
 
 ---
 
-*Documento de herramientas v4.5.1*
-*Fecha: 2026-04-30*
-*Total: 107 herramientas*
+## Capa 9: Shader Tools (4 herramientas)
+
+Herramientas centralizadas para gestión completa de shaders GDShader en Godot 4.x.
+
+### `manage_shader`
+
+Herramienta MADRE para crear, editar, leer, validar y eliminar archivos `.gdshader`.
+
+**Modos:** `create` | `edit` | `read` | `validate` | `delete` | `list_templates`
+
+```python
+manage_shader(
+    session_id: str,
+    project_path: str,
+    mode: str,
+    shader_path: str,
+    template: str = "",
+    code: str = "",
+    uniforms: dict = None,
+    render_modes: list = None,
+    replace_section: str = "",
+) -> dict
+```
+
+**Ejemplos:**
+
+```python
+# Crear shader desde template
+manage_shader(
+    session_id="abc123",
+    project_path="D:/MyGame",
+    mode="create",
+    shader_path="res://shaders/water.gdshader",
+    template="water",
+    uniforms={"wave_speed": 2.0, "wave_height": 0.2}
+)
+
+# Validar shader existente
+manage_shader(
+    session_id="abc123",
+    project_path="D:/MyGame",
+    mode="validate",
+    shader_path="res://shaders/effect.gdshader"
+)
+
+# Editar función fragment
+manage_shader(
+    session_id="abc123",
+    project_path="D:/MyGame",
+    mode="edit",
+    shader_path="res://shaders/effect.gdshader",
+    replace_section="fragment",
+    code="""
+void fragment() {
+    COLOR = vec4(1.0, 0.0, 0.0, 1.0);
+}
+"""
+)
+
+# Listar templates disponibles
+manage_shader(
+    session_id="abc123",
+    project_path="D:/MyGame",
+    mode="list_templates",
+    shader_path=""
+)
+```
+
+**Templates disponibles:** `post_process_base`, `volumetric_fog`, `water`, `dissolve`, `outline`, `canvas_item_glow`, `sdf_raymarch`, `toon_shading`, `particle_trail`, `grayscale`, `pixelate`, `chromatic_aberration`, `vignette`, `grain`, `noise_functions`
+
+---
+
+### `manage_shader_material`
+
+Configurar ShaderMaterial y gestionar parámetros de shader con workarounds de bugs integrados.
+
+**Modos:** `create` | `set_params` | `read_params` | `clear_params`
+
+```python
+manage_shader_material(
+    session_id: str,
+    project_path: str,
+    mode: str,
+    target_node: str,
+    scene_path: str,
+    shader_path: str = "",
+    params: dict = None,
+    material_name: str = "",
+    use_override: bool = True,
+) -> dict
+```
+
+**Ejemplos:**
+
+```python
+# Crear material y asignar shader a nodo
+manage_shader_material(
+    session_id="abc123",
+    project_path="D:/MyGame",
+    mode="create",
+    target_node="Player/Sprite2D",
+    scene_path="res://scenes/Player.tscn",
+    shader_path="res://shaders/dissolve.gdshader",
+    use_override=True
+)
+
+# Setear parámetros (con double-set workaround automático)
+manage_shader_material(
+    session_id="abc123",
+    project_path="D:/MyGame",
+    mode="set_params",
+    target_node="Player/Sprite2D",
+    scene_path="res://scenes/Player.tscn",
+    params={
+        "u_dissolve_amount": 0.7,
+        "u_edge_color": "#FF6600"
+    }
+)
+
+# Leer parámetros actuales
+manage_shader_material(
+    session_id="abc123",
+    project_path="D:/MyGame",
+    mode="read_params",
+    target_node="Player/Sprite2D",
+    scene_path="res://scenes/Player.tscn"
+)
+```
+
+---
+
+### `create_render_pipeline`
+
+Crear cadenas de efectos de post-procesado con SubViewports.
+
+```python
+create_render_pipeline(
+    session_id: str,
+    project_path: str,
+    pipeline_name: str,
+    effects: list,
+    resolution: dict = None,
+    output_to_screen: bool = True,
+) -> dict
+```
+
+**Ejemplo:**
+
+```python
+create_render_pipeline(
+    session_id="abc123",
+    project_path="D:/MyGame",
+    pipeline_name="res://pipelines/damage_postfx.tscn",
+    effects=[
+        {
+            "shader": "res://shaders/chromatic_aberration.gdshader",
+            "params": {"u_offset": 3.0}
+        },
+        {
+            "shader": "res://shaders/vignette.gdshader",
+            "params": {"u_intensity": 0.6, "u_color": "#330000"}
+        },
+        {
+            "shader": "res://shaders/grain.gdshader",
+            "params": {"u_amount": 0.15}
+        }
+    ],
+    resolution={"x": 1920, "y": 1080}
+)
+```
+
+---
+
+### `analyze_shader`
+
+Inteligencia y diagnóstico profundo de shaders.
+
+**Modos:** `inspect` | `optimize` | `compare` | `profile`
+
+```python
+analyze_shader(
+    session_id: str,
+    project_path: str,
+    shader_path: str,
+    mode: str = "inspect",
+    target_platform: str = "desktop",
+    comparison_shader: str = "",
+) -> dict
+```
+
+**Ejemplos:**
+
+```python
+# Inspección completa
+analyze_shader(
+    session_id="abc123",
+    project_path="D:/MyGame",
+    shader_path="res://shaders/water.gdshader",
+    mode="inspect"
+)
+
+# Optimización para mobile
+analyze_shader(
+    session_id="abc123",
+    project_path="D:/MyGame",
+    shader_path="res://shaders/expensive.gdshader",
+    mode="optimize",
+    target_platform="mobile"
+)
+
+# Comparar dos shaders
+analyze_shader(
+    session_id="abc123",
+    project_path="D:/MyGame",
+    shader_path="res://shaders/effect_a.gdshader",
+    mode="compare",
+    comparison_shader="res://shaders/effect_b.gdshader"
+)
+```
+
+---
+
+*Documento de herramientas v4.6.0*
+*Fecha: 2026-05-12*
+*Total: 111 herramientas*

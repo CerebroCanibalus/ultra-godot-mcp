@@ -10,7 +10,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-from .client import GodotLSPClient, check_lsp_available
+from .client import check_lsp_available
+from .connection_pool import get_lsp_client
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,10 @@ def lsp_get_completions(
             column=5
         )
     """
+    # Validate inputs
+    if not project_path:
+        return {"success": False, "error": "project_path is required", "completions": []}
+    
     if not check_lsp_available(host, port):
         return {
             "success": False,
@@ -56,17 +61,10 @@ def lsp_get_completions(
             "completions": [],
         }
     
-    client = GodotLSPClient(host, port)
-    
     try:
-        if not client.connect():
-            return {
-                "success": False,
-                "error": "Failed to connect to LSP",
-                "completions": [],
-            }
+        client = get_lsp_client(host, port)
         
-        # Initialize
+        # Initialize (idempotent - safe to call multiple times)
         client.initialize(project_path)
         
         # Get completions
@@ -83,8 +81,6 @@ def lsp_get_completions(
                 "insertText": item.get("insertText", ""),
             })
         
-        client.shutdown()
-        
         return {
             "success": True,
             "completions": formatted,
@@ -96,7 +92,6 @@ def lsp_get_completions(
         
     except Exception as e:
         logger.error(f"LSP completion error: {e}")
-        client.disconnect()
         return {
             "success": False,
             "error": str(e),
@@ -129,23 +124,22 @@ def lsp_get_hover(
     Example:
         lsp_get_hover("D:/MyGame", "res://scripts/player.gd", 15, 8)
     """
+    # Validate inputs
+    if not project_path:
+        return {"success": False, "error": "project_path is required"}
+    
     if not check_lsp_available(host, port):
         return {
             "success": False,
             "error": f"Godot LSP not available at {host}:{port}",
         }
     
-    client = GodotLSPClient(host, port)
-    
     try:
-        if not client.connect():
-            return {"success": False, "error": "Failed to connect to LSP"}
+        client = get_lsp_client(host, port)
         
         client.initialize(project_path)
         
         hover = client.get_hover(file_path, line, column)
-        
-        client.shutdown()
         
         if hover:
             contents = hover.get("contents", {})
@@ -196,6 +190,10 @@ def lsp_get_symbols(
     Example:
         lsp_get_symbols("D:/MyGame", "res://scripts/player.gd")
     """
+    # Validate inputs
+    if not project_path:
+        return {"success": False, "error": "project_path is required", "symbols": []}
+    
     if not check_lsp_available(host, port):
         return {
             "success": False,
@@ -203,15 +201,8 @@ def lsp_get_symbols(
             "symbols": [],
         }
     
-    client = GodotLSPClient(host, port)
-    
     try:
-        if not client.connect():
-            return {
-                "success": False,
-                "error": "Failed to connect to LSP",
-                "symbols": [],
-            }
+        client = get_lsp_client(host, port)
         
         client.initialize(project_path)
         
@@ -228,8 +219,6 @@ def lsp_get_symbols(
                 "selectionRange": symbol.get("selectionRange", {}),
             })
         
-        client.shutdown()
-        
         return {
             "success": True,
             "symbols": formatted,
@@ -239,7 +228,6 @@ def lsp_get_symbols(
         
     except Exception as e:
         logger.error(f"LSP symbols error: {e}")
-        client.disconnect()
         return {
             "success": False,
             "error": str(e),
@@ -268,6 +256,10 @@ def lsp_get_diagnostics(
     Example:
         lsp_get_diagnostics("D:/MyGame", "res://scripts/player.gd")
     """
+    # Validate inputs
+    if not project_path:
+        return {"success": False, "error": "project_path is required", "diagnostics": []}
+    
     if not check_lsp_available(host, port):
         return {
             "success": False,
@@ -275,22 +267,13 @@ def lsp_get_diagnostics(
             "diagnostics": [],
         }
     
-    client = GodotLSPClient(host, port)
-    
     try:
-        if not client.connect():
-            return {
-                "success": False,
-                "error": "Failed to connect to LSP",
-                "diagnostics": [],
-            }
+        client = get_lsp_client(host, port)
         
         client.initialize(project_path)
         
         # Open document to trigger diagnostics
         diagnostics = client.get_diagnostics(file_path)
-        
-        client.shutdown()
         
         formatted = []
         for diag in diagnostics:
@@ -311,7 +294,6 @@ def lsp_get_diagnostics(
         
     except Exception as e:
         logger.error(f"LSP diagnostics error: {e}")
-        client.disconnect()
         return {
             "success": False,
             "error": str(e),

@@ -248,8 +248,16 @@ class GodotLSPClient(GodotRPCClient):
         super().__init__(host, port)
         self._initialized = False
     
+    def is_initialized(self) -> bool:
+        """Check if LSP connection is initialized."""
+        return self._initialized
+    
     def initialize(self, root_path: str) -> dict:
         """Initialize LSP connection."""
+        if self._initialized:
+            logger.debug("LSP already initialized, skipping")
+            return {}
+        
         result = self.call("initialize", {
             "processId": None,
             "rootPath": root_path,
@@ -330,8 +338,16 @@ class GodotDAPClient(GodotRPCClient):
         super().__init__(host, port)
         self._initialized = False
     
+    def is_initialized(self) -> bool:
+        """Check if DAP connection is initialized."""
+        return self._initialized
+    
     def initialize(self) -> dict:
         """Initialize DAP connection."""
+        if self._initialized:
+            logger.debug("DAP already initialized, skipping")
+            return {}
+        
         result = self.call("initialize", {
             "clientID": "godot-mcp",
             "clientName": "Godot MCP",

@@ -6,6 +6,31 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/
 
 ---
 
+## [4.6.0] - 2026-05-12 - Shader Tools
+
+### Añadido - Capa 9: Shader Tools (4 tools)
+- **`tools/shader_tools.py`** - 4 herramientas centralizadas para gestión completa de shaders GDShader
+- **`manage_shader`** - Herramienta MADRE: crear, editar, leer, validar, eliminar shaders. 15 templates Jinja2 integrados
+- **`manage_shader_material`** - Puente Shader↔Nodo: crear ShaderMaterial, setear parámetros con double-set workaround, leer/clear params
+- **`create_render_pipeline`** - Composición de efectos: genera escenas `.tscn` con ColorRects encadenados para post-procesado
+- **`analyze_shader`** - Inteligencia: inspección estructural, optimización por plataforma (desktop/mobile/web), comparación, profiling
+
+### Añadido - Parser y Templates
+- **`core/shader_parser.py`** - Parser nativo de GDShader. Extrae: uniforms, functions, varyings, render_modes, includes, complejidad (branches/loops/textures), warnings automáticos
+- **`templates/shader_templates.py`** - 15 templates Jinja2: post_process_base, volumetric_fog, water, dissolve, outline, canvas_item_glow, sdf_raymarch, toon_shading, particle_trail, grayscale, pixelate, chromatic_aberration, vignette, grain, noise_functions
+
+### Añadido - Tests y Documentación
+- **`tests/test_shader_tools.py`** - 16 tests unitarios (100% pass)
+- **`docs/SHADERS.md`** - Documentación completa con ejemplos, workflows, workarounds
+
+### Mejorado
+- **111 herramientas totales** (107 anteriores + 4 nuevas)
+- **24 módulos registrados** en server.py (incluyendo shader_tools)
+- Validación sintáctica de shaders sin Godot instalado
+- Validación con Godot CLI cuando está disponible
+
+---
+
 ## [4.5.1] - 2026-04-30 - Anti-Hallucination Visual Tools
 
 ### Añadido

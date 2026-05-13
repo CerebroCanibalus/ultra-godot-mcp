@@ -56,6 +56,8 @@ REGISTERED_MODULES: List[Tuple[str, str]] = [
     ("tools.tilemap_tools", "register_tilemap_tools"),
     # Capa 9: Global Configuration (v4.5.0)
     ("tools.global_tools", "register_global_tools"),
+    # Capa 10: Shader Tools (v4.6.0)
+    ("tools.shader_tools", "register_shader_tools"),
 ]
 
 

@@ -9,7 +9,7 @@ Proporciona herramientas FastMCP para:
 Diseño:
 - Capa 1: build_resource (genérica, cualquier recurso)
 - Capa 2: build_nested_resource (jerarquías con referencias cruzadas)
-- Capa 3: Helpers específicos (create_animation, create_state_machine, etc.)
+- Capa 3: Helpers específicos (batch_create_animations, create_state_machine, etc.)
 """
 
 from __future__ import annotations
@@ -67,6 +67,7 @@ def _flatten_properties(
     props: dict[str, Any],
     prefix: str = "",
     array_properties: set[str] | None = None,
+    dictionary_properties: set[str] | None = None,
 ) -> dict[str, Any]:
     """
     Flatten nested dict properties into TSCN flat key format.
@@ -78,6 +79,7 @@ def _flatten_properties(
 
     Rules:
     - Dicts with "type" key matching a GDScript type → keep as-is
+    - Dicts under keys in `dictionary_properties` → wrap as Godot Dictionary
     - Other dicts are structural → flatten with slash notation
     - Lists are flattened with index notation UNLESS the property name
       is in `array_properties` (kept as flat array)
@@ -89,9 +91,14 @@ def _flatten_properties(
         array_properties: Set of property names that should remain as
                          flat arrays (not expanded to index notation).
                          Examples: "transitions", "bones", "points".
+        dictionary_properties: Set of property names whose dict values should
+                              be serialized as Godot Dictionary (not flattened).
+                              Example: "keys" (for Animation track keys).
     """
     if array_properties is None:
         array_properties = set()
+    if dictionary_properties is None:
+        dictionary_properties = set()
 
     result = {}
 
@@ -103,12 +110,21 @@ def _flatten_properties(
 
         elif isinstance(value, dict):
             if _is_typed_value(value):
-                # Typed value (Vector2, Color, SubResource ref, Array, etc.)
+                # Typed value (Vector2, Color, SubResource ref, Array, Dictionary, etc.)
                 result[full_key] = value
+            elif key in dictionary_properties or full_key.split("/")[-1] in dictionary_properties:
+                # Dictionary property → wrap as Godot Dictionary
+                result[full_key] = {
+                    "type": "Dictionary",
+                    "items": {
+                        k: v for k, v in value.items()
+                    }
+                }
             else:
                 # Structural dict → flatten recursively
                 nested = _flatten_properties(
-                    value, prefix=full_key, array_properties=array_properties
+                    value, prefix=full_key, array_properties=array_properties,
+                    dictionary_properties=dictionary_properties
                 )
                 result.update(nested)
 
@@ -135,7 +151,8 @@ def _flatten_properties(
                             result[item_key] = item
                         else:
                             nested = _flatten_properties(
-                                item, prefix=item_key, array_properties=array_properties
+                                item, prefix=item_key, array_properties=array_properties,
+                                dictionary_properties=dictionary_properties
                             )
                             result.update(nested)
                     else:
@@ -154,6 +171,7 @@ def _build_sub_resource(
     properties: dict[str, Any],
     resource_id: str | None = None,
     array_properties: set[str] | None = None,
+    dictionary_properties: set[str] | None = None,
 ) -> str:
     """
     Internal: Create a SubResource in a scene object.
@@ -172,7 +190,8 @@ def _build_sub_resource(
 
     # Flatten properties
     flat_props = _flatten_properties(
-        properties, array_properties=array_properties
+        properties, array_properties=array_properties,
+        dictionary_properties=dictionary_properties
     )
 
     # Create SubResource
@@ -197,6 +216,7 @@ def build_resource(
     properties: dict[str, Any],
     resource_id: str | None = None,
     array_properties: set[str] | None = None,
+    dictionary_properties: set[str] | None = None,
 ) -> dict:
     """
     Create a SubResource with complex nested properties.
@@ -213,6 +233,9 @@ def build_resource(
         array_properties: Set of property names that should remain as
                          flat arrays instead of being expanded to index notation.
                          Common: {"transitions", "bones", "points"}.
+        dictionary_properties: Set of property names whose dict values should
+                              be serialized as Godot Dictionary (not flattened).
+                              Common: {"keys"} (for Animation track keys).
 
     Returns:
         Dict with success status and resource info.
@@ -241,7 +264,8 @@ def build_resource(
                         }
                     }
                 ]
-            }
+            },
+            dictionary_properties={"keys"}
         )
 
         # Create an AnimationNodeAnimation
@@ -266,6 +290,7 @@ def build_resource(
             properties=properties,
             resource_id=resource_id,
             array_properties=array_properties,
+            dictionary_properties=dictionary_properties,
         )
 
         # Update load_steps
@@ -301,6 +326,7 @@ def build_nested_resource(
     children: list[dict[str, Any]] | None = None,
     root_properties: dict[str, Any] | None = None,
     array_properties: set[str] | None = None,
+    dictionary_properties: set[str] | None = None,
 ) -> dict:
     """
     Create a hierarchy of SubResources with cross-references.
@@ -320,6 +346,8 @@ def build_nested_resource(
                         Can reference children via SubResource refs.
         array_properties: Set of property names that should remain as
                          flat arrays in the root resource.
+        dictionary_properties: Set of property names whose dict values should
+                              be serialized as Godot Dictionary.
 
     Returns:
         Dict with success status and all created resource IDs.
@@ -395,6 +423,7 @@ def build_nested_resource(
             properties=root_properties or {},
             resource_id=root_id,
             array_properties=array_properties,
+            dictionary_properties=dictionary_properties,
         )
         created_ids.append(root_id)
 
@@ -421,97 +450,6 @@ def build_nested_resource(
 
 
 # ============ CAPA 3: HELPERS DE ALTO NIVEL ============
-
-
-@require_session
-def create_animation(
-    session_id: str,
-    scene_path: str,
-    name: str,
-    length: float = 1.0,
-    loop_mode: int = 0,
-    tracks: list[dict[str, Any]] | None = None,
-) -> dict:
-    """
-    Create an Animation resource with a simplified API.
-
-    Args:
-        session_id: Session ID from start_session.
-        scene_path: Path to the .tscn file.
-        name: Animation name (used for resource_id: "anim_{name}").
-        length: Animation length in seconds.
-        loop_mode: 0=none, 1=linear, 2=clamp.
-        tracks: List of track definitions. Each track has:
-            - type: "value", "position_3d", "rotation_3d", "scale_3d",
-                    "blend_shape", "method", "bezier", "audio", "animation"
-            - path: NodePath to the animated property (e.g., "Sprite2D:position")
-            - keys: Dict with "times", "transitions", "values" arrays
-
-    Returns:
-        Dict with success status and animation info.
-
-    Example:
-        create_animation(
-            scene_path="scenes/Player.tscn",
-            name="idle",
-            length=1.0,
-            loop_mode=1,
-            tracks=[
-                {
-                    "type": "value",
-                    "path": "Sprite2D:position",
-                    "keys": {
-                        "times": [0.0, 0.5, 1.0],
-                        "transitions": [1.0, 1.0, 1.0],
-                        "values": [
-                            {"type": "Vector2", "x": 0, "y": 0},
-                            {"type": "Vector2", "x": 10, "y": 0},
-                            {"type": "Vector2", "x": 0, "y": 0}
-                        ]
-                    }
-                }
-            ]
-        )
-    """
-    resource_id = f"anim_{name}"
-
-    # Build track properties in TSCN format
-    track_props = {}
-    if tracks:
-        for i, track in enumerate(tracks):
-            track_type = track.get("type", "value")
-            track_path = track.get("path", "")
-            track_keys = track.get("keys", {})
-
-            track_props[f"tracks/{i}/type"] = track_type
-            track_props[f"tracks/{i}/path"] = track_path
-
-            # Format keys as a dict with times/transitions/values
-            if track_keys:
-                times = track_keys.get("times", [])
-                transitions = track_keys.get("transitions", [1.0] * len(times))
-                values = track_keys.get("values", [])
-
-                track_props[f"tracks/{i}/keys"] = {
-                    "times": {"type": "Array", "items": times},
-                    "transitions": {"type": "Array", "items": transitions},
-                    "values": {"type": "Array", "items": values},
-                }
-
-    properties = {
-        "length": length,
-        "loop_mode": loop_mode,
-        "step": 0.0333333,
-    }
-    properties.update(track_props)
-
-    return build_resource(
-        session_id=session_id,
-        scene_path=scene_path,
-        resource_type="Animation",
-        resource_id=resource_id,
-        properties=properties,
-    )
 
 
 @require_session
@@ -1213,6 +1151,1163 @@ def create_tile_set(
     )
 
 
+# ============ CAPA 6: TOOLS ULTRA-RÁPIDAS DE ANIMACIÓN ============
+
+
+@require_session
+def batch_create_animations(
+    session_id: str,
+    scene_path: str,
+    animations: list[dict[str, Any]],
+) -> dict:
+    """
+    Create multiple Animation resources in a single batch operation.
+
+    Simplified keyframe API: each keyframe is a dict with time/value/easing
+    instead of parallel arrays. Auto-calculates length from keyframes.
+
+    Args:
+        session_id: Session ID from start_session.
+        scene_path: Path to the .tscn file.
+        animations: List of animation definitions. Each has:
+            - name: Animation name (required)
+            - length: Optional float (auto-calculated from keyframes if omitted)
+            - loop: Optional bool (default: False, True for "idle"-like names)
+            - tracks: List of track definitions. Each track has:
+                - path: NodePath to animated property (e.g., "Sprite2D:position")
+                - type: Optional track type ("value", "position_3d", "rotation_3d",
+                        "scale_3d", "blend_shape", "method", "bezier", "audio", "animation")
+                - keyframes: List of keyframe dicts, each with:
+                    - time: float (seconds)
+                    - value: The value at this keyframe
+                    - easing: Optional ("linear", "ease_in", "ease_out", "ease_in_out", or float)
+
+    Returns:
+        Dict with success status and list of created animation IDs.
+
+    Example:
+        batch_create_animations(
+            scene_path="scenes/Player.tscn",
+            animations=[
+                {
+                    "name": "idle",
+                    "loop": True,
+                    "tracks": [
+                        {
+                            "path": "Sprite2D:position",
+                            "keyframes": [
+                                {"time": 0.0, "value": {"type": "Vector2", "x": 0, "y": 0}},
+                                {"time": 0.5, "value": {"type": "Vector2", "x": 0, "y": -2}},
+                                {"time": 1.0, "value": {"type": "Vector2", "x": 0, "y": 0}},
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "jump",
+                    "loop": False,
+                    "tracks": [
+                        {
+                            "path": "CharacterBody2D:position:y",
+                            "keyframes": [
+                                {"time": 0.0, "value": 0, "easing": "linear"},
+                                {"time": 0.3, "value": -50, "easing": "ease_out"},
+                                {"time": 0.6, "value": 0, "easing": "ease_in"},
+                            ]
+                        }
+                    ]
+                }
+            ]
+        )
+    """
+    scene_path = _ensure_tscn_path(scene_path)
+
+    if not os.path.exists(scene_path):
+        return {"success": False, "error": "Scene file not found"}
+
+    try:
+        scene = parse_tscn(scene_path)
+        created_ids = []
+
+        # Generate numeric IDs for animations to ensure Godot compatibility
+        import random
+        existing_ids = {sub.id for sub in scene.sub_resources}
+        
+        for anim_def in animations:
+            name = anim_def["name"]
+            # Use numeric ID for Godot compatibility (AnimationLibrary expects numeric refs)
+            resource_id = anim_def.get("resource_id")
+            if resource_id is None:
+                # Generate a unique numeric ID
+                while True:
+                    resource_id = str(random.randint(1000, 999999))
+                    if resource_id not in existing_ids:
+                        existing_ids.add(resource_id)
+                        break
+
+            # Check for duplicate
+            for sub in scene.sub_resources:
+                if sub.id == resource_id:
+                    raise ValueError(f"Animation '{name}' already exists (id: {resource_id})")
+
+            # Auto-detect loop from name or explicit
+            loop = anim_def.get("loop")
+            if loop is None:
+                loop = "idle" in name.lower() or "wait" in name.lower()
+            loop_mode = 1 if loop else 0
+
+            # Build tracks
+            track_props = {}
+            tracks = anim_def.get("tracks", [])
+            max_time = 0.0
+
+            for i, track in enumerate(tracks):
+                track_type = track.get("type", "value")
+                track_path = track.get("path", "")
+                keyframes = track.get("keyframes", [])
+
+                track_props[f"tracks/{i}/type"] = track_type
+                track_props[f"tracks/{i}/path"] = track_path
+
+                if keyframes:
+                    times = []
+                    transitions = []
+                    values = []
+
+                    for kf in keyframes:
+                        t = kf["time"]
+                        times.append(t)
+                        max_time = max(max_time, t)
+
+                        # Easing: default 1.0 (linear), or parse named easings
+                        easing = kf.get("easing", "linear")
+                        if easing == "linear":
+                            transitions.append(1.0)
+                        elif easing == "ease_in":
+                            transitions.append(0.5)
+                        elif easing == "ease_out":
+                            transitions.append(2.0)
+                        elif easing == "ease_in_out":
+                            transitions.append(-2.0)
+                        elif isinstance(easing, (int, float)):
+                            transitions.append(float(easing))
+                        else:
+                            transitions.append(1.0)
+
+                        values.append(kf["value"])
+
+                    track_props[f"tracks/{i}/keys"] = {
+                        "type": "Dictionary",
+                        "items": {
+                            "times": {"type": "PackedFloat32Array", "items": times},
+                            "transitions": {"type": "PackedFloat32Array", "items": transitions},
+                            "update": 0,
+                            "values": {"type": "Array", "items": values},
+                        }
+                    }
+
+            # Length: explicit or auto-calculated
+            length = anim_def.get("length")
+            if length is None:
+                length = max_time if max_time > 0 else 1.0
+
+            properties = {
+                "length": length,
+                "loop_mode": loop_mode,
+                "step": 0.0333333,
+            }
+            properties.update(track_props)
+
+            # Create the Animation SubResource
+            _build_sub_resource(
+                scene=scene,
+                resource_type="Animation",
+                properties=properties,
+                resource_id=resource_id,
+            )
+            created_ids.append(resource_id)
+
+        # Update load_steps
+        scene.header.load_steps = 1 + len(scene.ext_resources) + len(scene.sub_resources)
+
+        # Save
+        _update_scene_file(scene_path, scene)
+
+        return {
+            "success": True,
+            "message": f"Created {len(created_ids)} animation(s)",
+            "animation_ids": created_ids,
+            "scene_path": scene_path,
+        }
+
+    except ValueError as e:
+        return {"success": False, "error": str(e)}
+    except Exception as e:
+        return {"success": False, "error": f"Unexpected error: {type(e).__name__}: {e}"}
+
+
+@require_session
+def add_animation_track(
+    session_id: str,
+    scene_path: str,
+    animation_name: str,
+    track: dict[str, Any],
+) -> dict:
+    """
+    Add a track to an existing Animation resource.
+
+    Args:
+        session_id: Session ID from start_session.
+        scene_path: Path to the .tscn file.
+        animation_name: Name of the existing animation (e.g., "idle").
+        track: Track definition with:
+            - path: NodePath to animated property (e.g., "Sprite2D:position")
+            - type: Optional track type (default: "value")
+            - keyframes: List of keyframe dicts with time/value/easing
+
+    Returns:
+        Dict with success status and track index.
+
+    Example:
+        add_animation_track(
+            scene_path="scenes/Player.tscn",
+            animation_name="idle",
+            track={
+                "path": "Sprite2D:modulate",
+                "keyframes": [
+                    {"time": 0.0, "value": {"type": "Color", "r": 1, "g": 1, "b": 1}},
+                    {"time": 0.5, "value": {"type": "Color", "r": 1, "g": 0, "b": 0}},
+                ]
+            }
+        )
+    """
+    scene_path = _ensure_tscn_path(scene_path)
+
+    if not os.path.exists(scene_path):
+        return {"success": False, "error": "Scene file not found"}
+
+    try:
+        scene = parse_tscn(scene_path)
+
+        resource_id = f"anim_{animation_name}"
+
+        # Find existing animation
+        target_anim = None
+        for sub in scene.sub_resources:
+            if sub.id == resource_id:
+                target_anim = sub
+                break
+
+        if not target_anim:
+            return {
+                "success": False,
+                "error": f"Animation '{animation_name}' not found (looked for id: {resource_id})",
+            }
+
+        # Count existing tracks
+        existing_tracks = set()
+        for key in target_anim.properties.keys():
+            if key.startswith("tracks/"):
+                parts = key.split("/")
+                if len(parts) >= 2:
+                    try:
+                        existing_tracks.add(int(parts[1]))
+                    except ValueError:
+                        pass
+
+        new_track_idx = max(existing_tracks, default=-1) + 1
+
+        # Build new track
+        track_type = track.get("type", "value")
+        track_path = track.get("path", "")
+        keyframes = track.get("keyframes", [])
+
+        target_anim.properties[f"tracks/{new_track_idx}/type"] = track_type
+        target_anim.properties[f"tracks/{new_track_idx}/path"] = track_path
+
+        if keyframes:
+            times = []
+            transitions = []
+            values = []
+
+            for kf in keyframes:
+                times.append(kf["time"])
+
+                easing = kf.get("easing", "linear")
+                if easing == "linear":
+                    transitions.append(1.0)
+                elif easing == "ease_in":
+                    transitions.append(0.5)
+                elif easing == "ease_out":
+                    transitions.append(2.0)
+                elif easing == "ease_in_out":
+                    transitions.append(-2.0)
+                elif isinstance(easing, (int, float)):
+                    transitions.append(float(easing))
+                else:
+                    transitions.append(1.0)
+
+                values.append(kf["value"])
+
+            target_anim.properties[f"tracks/{new_track_idx}/keys"] = {
+                "type": "Dictionary",
+                "items": {
+                    "times": {"type": "PackedFloat32Array", "items": times},
+                    "transitions": {"type": "PackedFloat32Array", "items": transitions},
+                    "update": 0,
+                    "values": {"type": "Array", "items": values},
+                }
+            }
+
+        # Update length if keyframes extend beyond current length
+        max_time = max((kf["time"] for kf in keyframes), default=0.0)
+        current_length = target_anim.properties.get("length", 1.0)
+        if max_time > current_length:
+            target_anim.properties["length"] = max_time
+
+        # Save
+        _update_scene_file(scene_path, scene)
+
+        return {
+            "success": True,
+            "message": f"Added track {new_track_idx} to animation '{animation_name}'",
+            "track_index": new_track_idx,
+            "animation_id": resource_id,
+            "scene_path": scene_path,
+        }
+
+    except Exception as e:
+        return {"success": False, "error": f"Unexpected error: {type(e).__name__}: {e}"}
+
+
+@require_session
+def setup_animation_system(
+    session_id: str,
+    scene_path: str,
+    player: dict[str, Any] | None = None,
+    tree: dict[str, Any] | None = None,
+    connect_tree_to_player: bool = True,
+) -> dict:
+    """
+    Setup a complete AnimationPlayer + AnimationTree system in one call.
+
+    Creates nodes, animations, and tree resources, then connects everything.
+    All operations work on a single in-memory Scene object for atomicity.
+
+    Args:
+        session_id: Session ID from start_session.
+        scene_path: Path to the .tscn file.
+        player: AnimationPlayer config with:
+            - node_name: Optional name (default: "AnimationPlayer")
+            - autoplay: Optional animation name to autoplay
+            - animations: List of animation definitions (same format as batch_create_animations)
+        tree: AnimationTree config with:
+            - node_name: Optional name (default: "AnimationTree")
+            - type: "state_machine" | "blend_tree" | "blend_space_1d" | "blend_space_2d"
+            - config: Type-specific configuration
+            - active: Optional bool (default: True)
+        connect_tree_to_player: If True, auto-connects AnimationTree to AnimationPlayer.
+
+    Returns:
+        Dict with success status and created resource IDs.
+
+    Example:
+        setup_animation_system(
+            scene_path="scenes/Player.tscn",
+            player={
+                "animations": [
+                    {
+                        "name": "idle",
+                        "loop": True,
+                        "tracks": [
+                            {
+                                "path": "Sprite2D:position",
+                                "keyframes": [
+                                    {"time": 0, "value": {"type": "Vector2", "x": 0, "y": 0}},
+                                    {"time": 0.5, "value": {"type": "Vector2", "x": 0, "y": -2}},
+                                    {"time": 1, "value": {"type": "Vector2", "x": 0, "y": 0}},
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            tree={
+                "type": "state_machine",
+                "config": {
+                    "states": [
+                        {"name": "Idle", "animation": "idle"},
+                        {"name": "Walk", "animation": "walk"},
+                    ],
+                    "transitions": [
+                        {"from": "Idle", "to": "Walk"},
+                        {"from": "Walk", "to": "Idle"},
+                    ]
+                }
+            }
+        )
+    """
+    scene_path = _ensure_tscn_path(scene_path)
+
+    if not os.path.exists(scene_path):
+        return {"success": False, "error": "Scene file not found"}
+
+    try:
+        from godot_mcp.core.tscn_parser import SceneNode
+
+        scene = parse_tscn(scene_path)
+        created_resources = []
+        created_nodes = []
+
+        def _node_exists(scene: Scene, name: str) -> bool:
+            for n in scene.nodes:
+                if n.name == name:
+                    return True
+            return False
+
+        # ========== STEP 1: CREATE ANIMATIONPLAYER ==========
+        player_name = player.get("node_name", "AnimationPlayer") if player else "AnimationPlayer"
+        player_animations = player.get("animations", []) if player else []
+        autoplay = player.get("autoplay", "") if player else ""
+
+        # Create AnimationPlayer node directly
+        if _node_exists(scene, player_name):
+            return {"success": False, "error": f"Node '{player_name}' already exists"}
+
+        player_node = SceneNode(
+            name=player_name,
+            type="AnimationPlayer",
+            parent=".",
+        )
+        if autoplay:
+            player_node.properties["autoplay"] = autoplay
+        scene.nodes.append(player_node)
+        created_nodes.append(player_name)
+
+        # Create animations
+        for anim_def in player_animations:
+            name = anim_def["name"]
+            resource_id = f"anim_{name}"
+
+            # Check for duplicate
+            for sub in scene.sub_resources:
+                if sub.id == resource_id:
+                    raise ValueError(f"Animation '{name}' already exists")
+
+            loop = anim_def.get("loop")
+            if loop is None:
+                loop = "idle" in name.lower() or "wait" in name.lower()
+            loop_mode = 1 if loop else 0
+
+            track_props = {}
+            tracks = anim_def.get("tracks", [])
+            max_time = 0.0
+
+            for i, track in enumerate(tracks):
+                track_type = track.get("type", "value")
+                track_path = track.get("path", "")
+                keyframes = track.get("keyframes", [])
+
+                track_props[f"tracks/{i}/type"] = track_type
+                track_props[f"tracks/{i}/path"] = track_path
+
+                if keyframes:
+                    times = []
+                    transitions = []
+                    values = []
+
+                    for kf in keyframes:
+                        t = kf["time"]
+                        times.append(t)
+                        max_time = max(max_time, t)
+
+                        easing = kf.get("easing", "linear")
+                        if easing == "linear":
+                            transitions.append(1.0)
+                        elif easing == "ease_in":
+                            transitions.append(0.5)
+                        elif easing == "ease_out":
+                            transitions.append(2.0)
+                        elif easing == "ease_in_out":
+                            transitions.append(-2.0)
+                        elif isinstance(easing, (int, float)):
+                            transitions.append(float(easing))
+                        else:
+                            transitions.append(1.0)
+
+                        values.append(kf["value"])
+
+                    track_props[f"tracks/{i}/keys"] = {
+                        "type": "Dictionary",
+                        "items": {
+                            "times": {"type": "PackedFloat32Array", "items": times},
+                            "transitions": {"type": "PackedFloat32Array", "items": transitions},
+                            "update": 0,
+                            "values": {"type": "Array", "items": values},
+                        }
+                    }
+
+            length = anim_def.get("length")
+            if length is None:
+                length = max_time if max_time > 0 else 1.0
+
+            properties = {
+                "length": length,
+                "loop_mode": loop_mode,
+                "step": 0.0333333,
+            }
+            properties.update(track_props)
+
+            _build_sub_resource(
+                scene=scene,
+                resource_type="Animation",
+                properties=properties,
+                resource_id=resource_id,
+            )
+            created_resources.append(resource_id)
+
+        # ========== STEP 2: CREATE ANIMATIONTREE (optional) ==========
+        if tree:
+            tree_name = tree.get("node_name", "AnimationTree")
+            tree_type = tree.get("type", "state_machine")
+            tree_config = tree.get("config", {})
+            active = tree.get("active", True)
+
+            if _node_exists(scene, tree_name):
+                return {"success": False, "error": f"Node '{tree_name}' already exists"}
+
+            # Create AnimationTree node
+            tree_node = SceneNode(
+                name=tree_name,
+                type="AnimationTree",
+                parent=".",
+            )
+            tree_node.properties["active"] = active
+            tree_node.properties["tree_root"] = {"type": "SubResource", "ref": "placeholder"}
+            if connect_tree_to_player:
+                tree_node.properties["anim_player"] = f'NodePath("../{player_name}")'
+            scene.nodes.append(tree_node)
+            created_nodes.append(tree_name)
+
+            # Build tree root resource directly
+            if tree_type == "state_machine":
+                states = tree_config.get("states", [])
+                transitions = tree_config.get("transitions", [])
+                sm_name = f"{tree_name}_sm"
+                sm_id = f"sm_{sm_name}"
+
+                # Build children (AnimationNodeAnimation for each state)
+                children = []
+                for state in states:
+                    state_name = state["name"]
+                    anim_name = state.get("animation", state_name)
+                    node_id = f"node_{sm_name}_{state_name.lower()}"
+                    children.append({
+                        "type": "AnimationNodeAnimation",
+                        "id": node_id,
+                        "properties": {"animation": f'&"{anim_name}"'},
+                    })
+
+                # Build root properties
+                root_props = {}
+                states_dict = {}
+                for state in states:
+                    state_name = state["name"]
+                    node_id = f"node_{sm_name}_{state_name.lower()}"
+                    position = state.get("position", {"type": "Vector2", "x": 0, "y": 0})
+                    states_dict[state_name] = {
+                        "node": {"type": "SubResource", "ref": node_id},
+                        "position": position,
+                    }
+                root_props["states"] = states_dict
+
+                # Transitions
+                if transitions:
+                    trans_array = []
+                    for t in transitions:
+                        has_custom = (
+                            t.get("switch_mode", 0) != 0
+                            or t.get("xfade_time", 0.0) != 0.0
+                            or t.get("advance_mode", 1) != 1
+                            or t.get("advance_condition")
+                            or t.get("advance_expression")
+                            or not t.get("reset", True)
+                            or t.get("priority", 1) != 1
+                        )
+                        trans_array.append(t["from"])
+                        trans_array.append(t["to"])
+                        if has_custom:
+                            trans_id = f"trans_{sm_name}_{t['from'].lower()}_{t['to'].lower()}"
+                            trans_props = {}
+                            if t.get("switch_mode", 0) != 0:
+                                trans_props["switch_mode"] = t["switch_mode"]
+                            if t.get("xfade_time", 0.0) != 0.0:
+                                trans_props["xfade_time"] = t["xfade_time"]
+                            if t.get("advance_mode", 1) != 1:
+                                trans_props["advance_mode"] = t["advance_mode"]
+                            if t.get("advance_condition"):
+                                trans_props["advance_condition"] = t["advance_condition"]
+                            if t.get("advance_expression"):
+                                trans_props["advance_expression"] = t["advance_expression"]
+                            if not t.get("reset", True):
+                                trans_props["reset"] = False
+                            if t.get("priority", 1) != 1:
+                                trans_props["priority"] = t["priority"]
+                            children.append({
+                                "type": "AnimationNodeStateMachineTransition",
+                                "id": trans_id,
+                                "properties": trans_props,
+                            })
+                            trans_array.append({"type": "SubResource", "ref": trans_id})
+                    root_props["transitions"] = trans_array
+
+                # Create children first
+                for child in children:
+                    _build_sub_resource(
+                        scene=scene,
+                        resource_type=child["type"],
+                        properties=child.get("properties", {}),
+                        resource_id=child["id"],
+                    )
+
+                # Create state machine root
+                _build_sub_resource(
+                    scene=scene,
+                    resource_type="AnimationNodeStateMachine",
+                    properties=root_props,
+                    resource_id=sm_id,
+                    array_properties={"transitions"},
+                )
+                tree_root_id = sm_id
+
+            elif tree_type == "blend_tree":
+                nodes = tree_config.get("nodes", [])
+                connections = tree_config.get("connections", [])
+                bt_name = f"{tree_name}_bt"
+                bt_id = f"blendtree_{bt_name}"
+
+                children = []
+                nodes_dict = {}
+
+                for node_def in nodes:
+                    node_name = node_def["name"]
+                    node_type = node_def.get("type", "AnimationNodeAnimation")
+                    node_props = node_def.get("properties", {})
+                    node_id = f"node_{bt_name}_{node_name.lower()}"
+                    position = node_def.get("position", {"type": "Vector2", "x": 0, "y": 0})
+                    node_props["position"] = position
+
+                    if node_name != "output":
+                        children.append({
+                            "type": node_type,
+                            "id": node_id,
+                            "properties": node_props,
+                        })
+                    nodes_dict[node_name] = node_id
+
+                root_props = {}
+                output_id = nodes_dict.get("output", f"node_{bt_name}_output")
+                root_props["nodes/output"] = {"type": "SubResource", "ref": output_id}
+                root_props["nodes/output/position"] = {"type": "Vector2", "x": 0, "y": 0}
+
+                for node_def in nodes:
+                    node_name = node_def["name"]
+                    node_id = f"node_{bt_name}_{node_name.lower()}"
+                    position = node_def.get("position", {"type": "Vector2", "x": 0, "y": 0})
+                    if node_name != "output":
+                        root_props[f"nodes/{node_name}"] = {"type": "SubResource", "ref": node_id}
+                        root_props[f"nodes/{node_name}/position"] = position
+
+                if connections:
+                    for i, conn in enumerate(connections):
+                        from_name = conn["from"]
+                        to_name = conn["to"]
+                        input_idx = conn.get("input_index", 0)
+                        root_props[f"connections/{i}/from_node"] = from_name
+                        root_props[f"connections/{i}/to_node"] = to_name
+                        root_props[f"connections/{i}/to_input"] = input_idx
+
+                for child in children:
+                    _build_sub_resource(
+                        scene=scene,
+                        resource_type=child["type"],
+                        properties=child["properties"],
+                        resource_id=child["id"],
+                    )
+
+                _build_sub_resource(
+                    scene=scene,
+                    resource_type="AnimationNodeBlendTree",
+                    properties=root_props,
+                    resource_id=bt_id,
+                )
+                tree_root_id = bt_id
+
+            elif tree_type == "blend_space_1d":
+                anims = tree_config.get("animations", [])
+                min_space = tree_config.get("min_space", 0.0)
+                max_space = tree_config.get("max_space", 1.0)
+                blend_pos = tree_config.get("blend_position", 0.0)
+                bs_name = f"{tree_name}_bs1d"
+                bs_id = f"blend1d_{bs_name}"
+
+                children = []
+                for anim in anims:
+                    anim_name = anim["name"]
+                    node_id = f"node_{bs_name}_{anim_name.lower()}"
+                    if "animation" in anim:
+                        children.append({
+                            "type": "AnimationNodeAnimation",
+                            "id": node_id,
+                            "properties": {"animation": anim["animation"]},
+                        })
+
+                root_props = {
+                    "min_space": min_space,
+                    "max_space": max_space,
+                    "blend_position": blend_pos,
+                }
+
+                for i, anim in enumerate(anims):
+                    anim_name = anim["name"]
+                    node_id = f"node_{bs_name}_{anim_name.lower()}"
+                    position = anim["position"]
+                    editor_pos = anim.get("position_2d", {"type": "Vector2", "x": i * 150, "y": 0})
+                    root_props[f"blend_point_{i}/node"] = {"type": "SubResource", "ref": node_id}
+                    root_props[f"blend_point_{i}/pos"] = {"type": "Vector2", "x": position, "y": 0}
+                    root_props[f"blend_point_{i}/position"] = editor_pos
+
+                for child in children:
+                    _build_sub_resource(
+                        scene=scene,
+                        resource_type=child["type"],
+                        properties=child["properties"],
+                        resource_id=child["id"],
+                    )
+
+                _build_sub_resource(
+                    scene=scene,
+                    resource_type="AnimationNodeBlendSpace1D",
+                    properties=root_props,
+                    resource_id=bs_id,
+                )
+                tree_root_id = bs_id
+
+            elif tree_type == "blend_space_2d":
+                anims = tree_config.get("animations", [])
+                min_space = tree_config.get("min_space", {"x": -1.0, "y": -1.0})
+                max_space = tree_config.get("max_space", {"x": 1.0, "y": 1.0})
+                blend_pos = tree_config.get("blend_position", {"x": 0.0, "y": 0.0})
+                bs_name = f"{tree_name}_bs2d"
+                bs_id = f"blend2d_{bs_name}"
+
+                children = []
+                for anim in anims:
+                    anim_name = anim["name"]
+                    node_id = f"node_{bs_name}_{anim_name.lower()}"
+                    if "animation" in anim:
+                        children.append({
+                            "type": "AnimationNodeAnimation",
+                            "id": node_id,
+                            "properties": {"animation": anim["animation"]},
+                        })
+
+                root_props = {
+                    "min_space": {"type": "Vector2", "x": min_space["x"], "y": min_space["y"]},
+                    "max_space": {"type": "Vector2", "x": max_space["x"], "y": max_space["y"]},
+                    "blend_position": {"type": "Vector2", "x": blend_pos["x"], "y": blend_pos["y"]},
+                }
+
+                for i, anim in enumerate(anims):
+                    anim_name = anim["name"]
+                    node_id = f"node_{bs_name}_{anim_name.lower()}"
+                    pos = anim["position"]
+                    root_props[f"blend_point_{i}/node"] = {"type": "SubResource", "ref": node_id}
+                    root_props[f"blend_point_{i}/pos"] = {"type": "Vector2", "x": pos["x"], "y": pos["y"]}
+
+                for child in children:
+                    _build_sub_resource(
+                        scene=scene,
+                        resource_type=child["type"],
+                        properties=child["properties"],
+                        resource_id=child["id"],
+                    )
+
+                _build_sub_resource(
+                    scene=scene,
+                    resource_type="AnimationNodeBlendSpace2D",
+                    properties=root_props,
+                    resource_id=bs_id,
+                )
+                tree_root_id = bs_id
+
+            else:
+                return {"success": False, "error": f"Unknown tree type: {tree_type}"}
+
+            created_resources.append(tree_root_id)
+
+            # Update tree_root reference on AnimationTree node
+            for n in scene.nodes:
+                if n.name == tree_name:
+                    n.properties["tree_root"] = {"type": "SubResource", "ref": tree_root_id}
+                    break
+
+        # Update load_steps and save
+        scene.header.load_steps = 1 + len(scene.ext_resources) + len(scene.sub_resources)
+        _update_scene_file(scene_path, scene)
+
+        return {
+            "success": True,
+            "message": f"Setup complete: {len(created_nodes)} node(s), {len(created_resources)} resource(s)",
+            "nodes": created_nodes,
+            "resources": created_resources,
+            "scene_path": scene_path,
+        }
+
+    except ValueError as e:
+        return {"success": False, "error": str(e)}
+    except Exception as e:
+        return {"success": False, "error": f"Unexpected error: {type(e).__name__}: {e}"}
+
+
+@require_session
+def update_animation_track(
+    session_id: str,
+    scene_path: str,
+    animation_name: str,
+    track_index: int,
+    track: dict[str, Any],
+) -> dict:
+    """
+    Replace an existing track's keyframes in an Animation resource.
+
+    Args:
+        session_id: Session ID from start_session.
+        scene_path: Path to the .tscn file.
+        animation_name: Name of the existing animation (e.g., "idle").
+        track_index: Index of the track to update (0-based).
+        track: New track definition with:
+            - path: NodePath to animated property
+            - type: Optional track type (default: "value")
+            - keyframes: List of keyframe dicts with time/value/easing
+
+    Returns:
+        Dict with success status.
+
+    Example:
+        update_animation_track(
+            scene_path="scenes/Player.tscn",
+            animation_name="idle",
+            track_index=0,
+            track={
+                "path": "Sprite2D:position",
+                "keyframes": [
+                    {"time": 0.0, "value": {"type": "Vector2", "x": 0, "y": 0}},
+                    {"time": 0.5, "value": {"type": "Vector2", "x": 0, "y": -5}},
+                    {"time": 1.0, "value": {"type": "Vector2", "x": 0, "y": 0}},
+                ]
+            }
+        )
+    """
+    scene_path = _ensure_tscn_path(scene_path)
+
+    if not os.path.exists(scene_path):
+        return {"success": False, "error": "Scene file not found"}
+
+    try:
+        scene = parse_tscn(scene_path)
+
+        resource_id = f"anim_{animation_name}"
+
+        # Find existing animation
+        target_anim = None
+        for sub in scene.sub_resources:
+            if sub.id == resource_id:
+                target_anim = sub
+                break
+
+        if not target_anim:
+            return {
+                "success": False,
+                "error": f"Animation '{animation_name}' not found",
+            }
+
+        # Verify track exists
+        track_type_key = f"tracks/{track_index}/type"
+        if track_type_key not in target_anim.properties:
+            return {
+                "success": False,
+                "error": f"Track {track_index} not found in animation '{animation_name}'",
+            }
+
+        # Remove old track properties
+        keys_to_remove = [
+            k for k in target_anim.properties.keys()
+            if k.startswith(f"tracks/{track_index}/")
+        ]
+        for k in keys_to_remove:
+            del target_anim.properties[k]
+
+        # Build new track
+        track_type = track.get("type", "value")
+        track_path = track.get("path", "")
+        keyframes = track.get("keyframes", [])
+
+        target_anim.properties[f"tracks/{track_index}/type"] = track_type
+        target_anim.properties[f"tracks/{track_index}/path"] = track_path
+
+        if keyframes:
+            times = []
+            transitions = []
+            values = []
+            max_time = 0.0
+
+            for kf in keyframes:
+                t = kf["time"]
+                times.append(t)
+                max_time = max(max_time, t)
+
+                easing = kf.get("easing", "linear")
+                if easing == "linear":
+                    transitions.append(1.0)
+                elif easing == "ease_in":
+                    transitions.append(0.5)
+                elif easing == "ease_out":
+                    transitions.append(2.0)
+                elif easing == "ease_in_out":
+                    transitions.append(-2.0)
+                elif isinstance(easing, (int, float)):
+                    transitions.append(float(easing))
+                else:
+                    transitions.append(1.0)
+
+                values.append(kf["value"])
+
+            target_anim.properties[f"tracks/{track_index}/keys"] = {
+                "type": "Dictionary",
+                "items": {
+                    "times": {"type": "PackedFloat32Array", "items": times},
+                    "transitions": {"type": "PackedFloat32Array", "items": transitions},
+                    "update": 0,
+                    "values": {"type": "Array", "items": values},
+                }
+            }
+
+            # Update length if needed
+            current_length = target_anim.properties.get("length", 1.0)
+            if max_time > current_length:
+                target_anim.properties["length"] = max_time
+
+        # Save
+        _update_scene_file(scene_path, scene)
+
+        return {
+            "success": True,
+            "message": f"Updated track {track_index} in animation '{animation_name}'",
+            "track_index": track_index,
+            "animation_id": resource_id,
+            "scene_path": scene_path,
+        }
+
+    except Exception as e:
+        return {"success": False, "error": f"Unexpected error: {type(e).__name__}: {e}"}
+
+
+@require_session
+def remove_animation_track(
+    session_id: str,
+    scene_path: str,
+    animation_name: str,
+    track_index: int,
+) -> dict:
+    """
+    Remove a track from an Animation resource and reindex remaining tracks.
+
+    Args:
+        session_id: Session ID from start_session.
+        scene_path: Path to the .tscn file.
+        animation_name: Name of the existing animation.
+        track_index: Index of the track to remove (0-based).
+
+    Returns:
+        Dict with success status.
+
+    Example:
+        remove_animation_track(
+            scene_path="scenes/Player.tscn",
+            animation_name="idle",
+            track_index=1
+        )
+    """
+    scene_path = _ensure_tscn_path(scene_path)
+
+    if not os.path.exists(scene_path):
+        return {"success": False, "error": "Scene file not found"}
+
+    try:
+        scene = parse_tscn(scene_path)
+
+        resource_id = f"anim_{animation_name}"
+
+        # Find existing animation
+        target_anim = None
+        for sub in scene.sub_resources:
+            if sub.id == resource_id:
+                target_anim = sub
+                break
+
+        if not target_anim:
+            return {
+                "success": False,
+                "error": f"Animation '{animation_name}' not found",
+            }
+
+        # Verify track exists
+        track_type_key = f"tracks/{track_index}/type"
+        if track_type_key not in target_anim.properties:
+            return {
+                "success": False,
+                "error": f"Track {track_index} not found in animation '{animation_name}'",
+            }
+
+        # Collect all track indices
+        track_indices = set()
+        for key in target_anim.properties.keys():
+            if key.startswith("tracks/"):
+                parts = key.split("/")
+                if len(parts) >= 2:
+                    try:
+                        track_indices.add(int(parts[1]))
+                    except ValueError:
+                        pass
+
+        # Remove the target track
+        keys_to_remove = [
+            k for k in target_anim.properties.keys()
+            if k.startswith(f"tracks/{track_index}/")
+        ]
+        for k in keys_to_remove:
+            del target_anim.properties[k]
+
+        # Reindex tracks with higher index
+        sorted_indices = sorted(track_indices, reverse=True)
+        for idx in sorted_indices:
+            if idx > track_index:
+                # Rename all properties from tracks/{idx}/ to tracks/{idx-1}/
+                old_keys = [
+                    k for k in list(target_anim.properties.keys())
+                    if k.startswith(f"tracks/{idx}/")
+                ]
+                for old_key in old_keys:
+                    new_key = old_key.replace(f"tracks/{idx}/", f"tracks/{idx - 1}/", 1)
+                    target_anim.properties[new_key] = target_anim.properties.pop(old_key)
+
+        # Save
+        _update_scene_file(scene_path, scene)
+
+        return {
+            "success": True,
+            "message": f"Removed track {track_index} from animation '{animation_name}'",
+            "removed_track_index": track_index,
+            "remaining_tracks": len(track_indices) - 1,
+            "animation_id": resource_id,
+            "scene_path": scene_path,
+        }
+
+    except Exception as e:
+        return {"success": False, "error": f"Unexpected error: {type(e).__name__}: {e}"}
+
+
+@require_session
+def update_animation_properties(
+    session_id: str,
+    scene_path: str,
+    animation_name: str,
+    length: float | None = None,
+    loop: bool | None = None,
+    step: float | None = None,
+) -> dict:
+    """
+    Update metadata properties of an Animation resource.
+
+    Args:
+        session_id: Session ID from start_session.
+        scene_path: Path to the .tscn file.
+        animation_name: Name of the existing animation.
+        length: Optional new length in seconds.
+        loop: Optional new loop mode (True/False).
+        step: Optional new step value.
+
+    Returns:
+        Dict with success status and updated properties.
+
+    Example:
+        update_animation_properties(
+            scene_path="scenes/Player.tscn",
+            animation_name="idle",
+            length=2.0,
+            loop=True
+        )
+    """
+    scene_path = _ensure_tscn_path(scene_path)
+
+    if not os.path.exists(scene_path):
+        return {"success": False, "error": "Scene file not found"}
+
+    try:
+        scene = parse_tscn(scene_path)
+
+        resource_id = f"anim_{animation_name}"
+
+        # Find existing animation
+        target_anim = None
+        for sub in scene.sub_resources:
+            if sub.id == resource_id:
+                target_anim = sub
+                break
+
+        if not target_anim:
+            return {
+                "success": False,
+                "error": f"Animation '{animation_name}' not found",
+            }
+
+        updated = []
+
+        if length is not None:
+            target_anim.properties["length"] = length
+            updated.append("length")
+
+        if loop is not None:
+            target_anim.properties["loop_mode"] = 1 if loop else 0
+            updated.append("loop_mode")
+
+        if step is not None:
+            target_anim.properties["step"] = step
+            updated.append("step")
+
+        if not updated:
+            return {
+                "success": True,
+                "message": "No properties to update",
+                "animation_id": resource_id,
+            }
+
+        # Save
+        _update_scene_file(scene_path, scene)
+
+        return {
+            "success": True,
+            "message": f"Updated {', '.join(updated)} on animation '{animation_name}'",
+            "updated_properties": updated,
+            "animation_id": resource_id,
+            "scene_path": scene_path,
+        }
+
+    except Exception as e:
+        return {"success": False, "error": f"Unexpected error: {type(e).__name__}: {e}"}
+
+
 # ============ REGISTRATION ============
 
 
@@ -1227,12 +2322,17 @@ def register_resource_builder_tools(mcp) -> None:
 
     mcp.add_tool(build_resource)
     mcp.add_tool(build_nested_resource)
-    mcp.add_tool(create_animation)
     mcp.add_tool(create_state_machine)
     mcp.add_tool(create_blend_space_1d)
     mcp.add_tool(create_blend_space_2d)
     mcp.add_tool(create_blend_tree)
     mcp.add_tool(create_sprite_frames)
     mcp.add_tool(create_tile_set)
+    mcp.add_tool(batch_create_animations)
+    mcp.add_tool(add_animation_track)
+    mcp.add_tool(setup_animation_system)
+    mcp.add_tool(update_animation_track)
+    mcp.add_tool(remove_animation_track)
+    mcp.add_tool(update_animation_properties)
 
-    logger.info("[OK] 9 resource builder tools registradas")
+    logger.info("[OK] 14 resource builder tools registradas")

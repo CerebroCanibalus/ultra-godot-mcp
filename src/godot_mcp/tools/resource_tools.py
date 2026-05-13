@@ -199,41 +199,91 @@ def update_resource(session_id: str, resource_path: str, properties: dict) -> di
         Dict with success status or error message.
     """
     try:
+        # Check for embedded subresource notation: path/to/file.tscn::SubResourceId
+        subresource_id = None
+        actual_path = resource_path
+        
+        if "::" in resource_path:
+            parts = resource_path.split("::", 1)
+            actual_path = parts[0]
+            subresource_id = parts[1]
+        
         # Validate file exists
-        if not os.path.isfile(resource_path):
+        if not os.path.isfile(actual_path):
             return {
                 "success": False,
-                "error": f"Resource file not found: {resource_path}",
+                "error": f"Resource file not found: {actual_path}",
             }
 
+        # Handle embedded subresource in .tscn
+        if subresource_id:
+            if not actual_path.endswith(".tscn"):
+                return {
+                    "success": False,
+                    "error": f"Embedded subresources only supported in .tscn files: {actual_path}",
+                }
+            
+            from godot_mcp.core.tscn_parser import parse_tscn
+            
+            scene = parse_tscn(actual_path)
+            
+            # Find the subresource
+            target_sub = None
+            for sub in scene.sub_resources:
+                if sub.id == subresource_id:
+                    target_sub = sub
+                    break
+            
+            if target_sub is None:
+                return {
+                    "success": False,
+                    "error": f"SubResource '{subresource_id}' not found in {actual_path}",
+                }
+            
+            # Update properties
+            for key, value in properties.items():
+                target_sub.properties[key] = value
+            
+            # Write back the entire scene
+            with open(actual_path, "w", encoding="utf-8") as f:
+                f.write(scene.to_tscn())
+            
+            return {
+                "success": True,
+                "resource_path": resource_path,
+                "updated_properties": list(properties.keys()),
+                "subresource_type": target_sub.type,
+            }
+        
+        # Standard .tres file handling
         # Validate file extension
-        if not resource_path.endswith(".tres"):
+        if not actual_path.endswith(".tres"):
             return {
                 "success": False,
-                "error": f"Not a .tres file: {resource_path}",
+                "error": f"Not a .tres file: {actual_path}",
             }
 
         # Parse existing resource
         cache = _get_resource_cache()
-        resource = cache.get(resource_path)
+        resource = cache.get(actual_path)
 
         if resource is None:
-            resource = parse_tres(resource_path)
+            resource = parse_tres(actual_path)
 
         # Update properties (merge with existing)
         for key, value in properties.items():
             resource.properties[key] = value
 
         # Write back to disk
-        with open(resource_path, "w", encoding="utf-8") as f:
+        with open(actual_path, "w", encoding="utf-8") as f:
             f.write(resource.to_tres())
 
         # Invalidate cache
-        cache.invalidate(resource_path)
+        cache.invalidate(actual_path)
 
         return {
             "success": True,
-            "resource_path": resource_path,
+            "resource_path": actual_path,
             "updated_properties": list(properties.keys()),
         }
 

@@ -33,7 +33,7 @@ from godot_mcp.core.tscn_parser import (
     parse_tscn_string,
 )
 from godot_mcp.core.tscn_validator import TSCNValidator
-from godot_mcp.tools.node_tools import _mark_scene_dirty
+from godot_mcp.tools.node_tools import _mark_scene_dirty, _ensure_tscn_path
 
 
 # ==================== Cache Compartido ====================

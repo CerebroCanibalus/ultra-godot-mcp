@@ -10,7 +10,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-from .client import GodotDAPClient, check_dap_available
+from .client import check_dap_available
+from .connection_pool import get_dap_client
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,10 @@ def dap_start_debugging(
         dap_start_debugging("D:/MyGame")
         dap_start_debugging("D:/MyGame", "res://scenes/Player.tscn")
     """
+    # Validate inputs
+    if not project_path:
+        return {"success": False, "error": "project_path is required"}
+    
     if not check_dap_available(host, port):
         return {
             "success": False,
@@ -47,14 +52,8 @@ def dap_start_debugging(
                      f"Make sure Godot Editor is open with debugging enabled.",
         }
     
-    client = GodotDAPClient(host, port)
-    
     try:
-        if not client.connect():
-            return {
-                "success": False,
-                "error": "Failed to connect to DAP",
-            }
+        client = get_dap_client(host, port)
         
         # Initialize
         init_result = client.initialize()
@@ -74,7 +73,6 @@ def dap_start_debugging(
         
     except Exception as e:
         logger.error(f"DAP start error: {e}")
-        client.disconnect()
         return {
             "success": False,
             "error": str(e),
@@ -106,25 +104,22 @@ def dap_set_breakpoint(
     Example:
         dap_set_breakpoint("D:/MyGame", "res://scripts/player.gd", 42)
     """
+    # Validate inputs
+    if not project_path:
+        return {"success": False, "error": "project_path is required"}
+    
     if not check_dap_available(host, port):
         return {
             "success": False,
             "error": f"Godot DAP not available at {host}:{port}",
         }
     
-    client = GodotDAPClient(host, port)
-    
     try:
-        if not client.connect():
-            return {"success": False, "error": "Failed to connect to DAP"}
-        
-        client.initialize()
+        client = get_dap_client(host, port)
         
         result = client.set_breakpoint(file_path, line, condition)
         
         breakpoints = result.get("breakpoints", [])
-        
-        client.disconnect()
         
         return {
             "success": True,
@@ -136,7 +131,6 @@ def dap_set_breakpoint(
         
     except Exception as e:
         logger.error(f"DAP breakpoint error: {e}")
-        client.disconnect()
         return {"success": False, "error": str(e)}
 
 
@@ -156,22 +150,20 @@ def dap_continue(
     Returns:
         Dict with success status.
     """
+    # Validate inputs
+    if not project_path:
+        return {"success": False, "error": "project_path is required"}
+    
     if not check_dap_available(host, port):
         return {
             "success": False,
             "error": f"Godot DAP not available at {host}:{port}",
         }
     
-    client = GodotDAPClient(host, port)
-    
     try:
-        if not client.connect():
-            return {"success": False, "error": "Failed to connect to DAP"}
+        client = get_dap_client(host, port)
         
-        client.initialize()
         result = client.continue_execution()
-        
-        client.disconnect()
         
         return {
             "success": True,
@@ -180,7 +172,6 @@ def dap_continue(
         
     except Exception as e:
         logger.error(f"DAP continue error: {e}")
-        client.disconnect()
         return {"success": False, "error": str(e)}
 
 
@@ -200,22 +191,20 @@ def dap_step_over(
     Returns:
         Dict with success status.
     """
+    # Validate inputs
+    if not project_path:
+        return {"success": False, "error": "project_path is required"}
+    
     if not check_dap_available(host, port):
         return {
             "success": False,
             "error": f"Godot DAP not available at {host}:{port}",
         }
     
-    client = GodotDAPClient(host, port)
-    
     try:
-        if not client.connect():
-            return {"success": False, "error": "Failed to connect to DAP"}
+        client = get_dap_client(host, port)
         
-        client.initialize()
         result = client.step_over()
-        
-        client.disconnect()
         
         return {
             "success": True,
@@ -224,7 +213,6 @@ def dap_step_over(
         
     except Exception as e:
         logger.error(f"DAP step over error: {e}")
-        client.disconnect()
         return {"success": False, "error": str(e)}
 
 
@@ -244,22 +232,20 @@ def dap_step_into(
     Returns:
         Dict with success status.
     """
+    # Validate inputs
+    if not project_path:
+        return {"success": False, "error": "project_path is required"}
+    
     if not check_dap_available(host, port):
         return {
             "success": False,
             "error": f"Godot DAP not available at {host}:{port}",
         }
     
-    client = GodotDAPClient(host, port)
-    
     try:
-        if not client.connect():
-            return {"success": False, "error": "Failed to connect to DAP"}
+        client = get_dap_client(host, port)
         
-        client.initialize()
         result = client.step_into()
-        
-        client.disconnect()
         
         return {
             "success": True,
@@ -268,7 +254,6 @@ def dap_step_into(
         
     except Exception as e:
         logger.error(f"DAP step into error: {e}")
-        client.disconnect()
         return {"success": False, "error": str(e)}
 
 
@@ -291,6 +276,10 @@ def dap_get_stack_trace(
     Example:
         dap_get_stack_trace("D:/MyGame")
     """
+    # Validate inputs
+    if not project_path:
+        return {"success": False, "error": "project_path is required", "frames": []}
+    
     if not check_dap_available(host, port):
         return {
             "success": False,
@@ -298,17 +287,8 @@ def dap_get_stack_trace(
             "frames": [],
         }
     
-    client = GodotDAPClient(host, port)
-    
     try:
-        if not client.connect():
-            return {
-                "success": False,
-                "error": "Failed to connect to DAP",
-                "frames": [],
-            }
-        
-        client.initialize()
+        client = get_dap_client(host, port)
         
         # Get stack trace
         frames = client.get_stack_trace()
@@ -342,8 +322,6 @@ def dap_get_stack_trace(
                 ],
             })
         
-        client.disconnect()
-        
         return {
             "success": True,
             "frames": formatted_frames,
@@ -352,7 +330,6 @@ def dap_get_stack_trace(
         
     except Exception as e:
         logger.error(f"DAP stack trace error: {e}")
-        client.disconnect()
         return {
             "success": False,
             "error": str(e),

@@ -2,8 +2,8 @@
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Godot 4.6+](https://img.shields.io/badge/Godot-4.6+-478cbf?logo=godotengine&logoColor=white)](https://godotengine.org/)
-[![Tests](https://img.shields.io/badge/Tests-496%20passing-2ea44f)](docs/TESTS.md)
-[![Version](https://img.shields.io/badge/Version-4.5.1-6f42c1)](CHANGELOG.md)
+[![Tests](https://img.shields.io/badge/Tests-512%20passing-2ea44f)](docs/TESTS.md)
+[![Version](https://img.shields.io/badge/Version-4.6.0-6f42c1)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > *"La técnica es una actividad compositora o destructora, violenta, y esto es lo que Aristóteles llamaba la poiesis, la poesía, precisamente."* — Gustavo Bueno
@@ -19,7 +19,7 @@ Servidor MCP para Godot Engine que permite a IAs y asistentes controlar proyecto
 | Característica | Descripción |
 |---|---|
 | 🔍 **Parsing nativo TSCN** | Lee y escribe archivos `.tscn` directamente, sin Godot headless |
-| 🛠️ **107 herramientas** | 8 capas: Core (45) + CLI Bridge (16) + LSP/DAP (10) + Intelligence (7) + Skeleton (6) + Array Ops (2) + Resource Builder (9) + TileMap (8) |
+| 🛠️ **111 herramientas** | 9 capas: Core (45) + CLI Bridge (16) + LSP/DAP (10) + Intelligence (7) + Skeleton (6) + Array Ops (2) + Resource Builder (9) + TileMap (8) + **Shaders (4)** |
 | 🎯 **Inspector unificado** | `set_node_properties` maneja TODOS los tipos de propiedad automáticamente |
 | 🔄 **Sesiones en memoria** | Workspace con dirty tracking, lazy loading y cache LRU |
 | ⚡ **Godot headless persistente** | Proceso Godot corriendo en background por sesión (10x más rápido) |
@@ -30,6 +30,7 @@ Servidor MCP para Godot Engine que permite a IAs y asistentes controlar proyecto
 | 📊 **Project Intelligence** | Dependency graph, signal graph, code analysis, métricas |
  | 🎬 **Export & Screenshot** | Exportar builds, capturar frames, grabar movies |
  | 🗺️ **TileMap Tools** | Inspeccionar y manipular TileMaps/TileSets con la API real de Godot |
+ | 🎨 **Shader Tools** | Crear, validar, analizar y gestionar shaders GDShader con 15 templates |
  | 🐛 **Debug** | 2 herramientas que requieren Godot instalado (las demás funcionan sin él) |
 
 ---
@@ -53,7 +54,7 @@ La diferencia principal: otros MCPs lanzan `godot --headless --script` por cada 
 
 | Dimensión | [godot-mcp](https://github.com/Coding-Solo/godot-mcp) | [GoPeak](https://github.com/GoD0Yun/Gopeak-godot-mcp) | [GodotIQ](https://godotiq.com) | **Ultra Godot MCP** |
 |---|---|---|---|---|
-| **Herramientas** | ~15 | 110+ | 36 (22 free + 14 Pro) | **107** |
+| **Herramientas** | ~15 | 110+ | 36 (22 free + 14 Pro) | **111** |
 | **Precio** | Gratis | Gratis (MIT) | $19 Pro | **Gratis (MIT)** |
 | **Addon requerido** | ❌ | ✅ (GDScript) | ✅ (18/22 tools) | **❌ Zero addon** |
 | **WebSocket** | ❌ | ✅ (4 puertos) | ✅ (puerto 6007) | **❌ Zero WebSocket** |
@@ -77,7 +78,7 @@ La diferencia principal: otros MCPs lanzan `godot --headless --script` por cada 
 | **Docs en español** | ❌ | ❌ | ❌ | **✅** |
 | **Instalación** | `npx` (npm) | `npx` (npm) | `pip` (Python) | **`pip` (Python)** |
 
-> **Nota:** GoPeak tiene más herramientas en número (110+), pero requiere addon GDScript + WebSocket + 4 puertos. Ultra Godot MCP prioriza **zero-config**: 107 herramientas que funcionan sin tocar tu proyecto Godot.
+> **Nota:** GoPeak tiene más herramientas en número (110+), pero requiere addon GDScript + WebSocket + 4 puertos. Ultra Godot MCP prioriza **zero-config**: 111 herramientas que funcionan sin tocar tu proyecto Godot.
 
 ### Comparativa de funcionalidades
 
@@ -219,7 +220,7 @@ Añade a tu `opencode.jsonc`:
 
 ---
 
-## 🛠️ Herramientas (107 en 8 capas)
+## 🛠️ Herramientas (111 en 9 capas)
 
 | Capa | Herramientas | Requiere Godot |
 |---|---|---|
@@ -231,8 +232,9 @@ Añade a tu `opencode.jsonc`:
 | **6. Array Ops** | Operaciones quirúrgicas en arrays de escenas | ❌ |
 | **7. Resource Builder** | Animation, StateMachine, BlendSpace, SpriteFrames, TileSet | ❌ |
 | **8. TileMap** | Inspect, Edit, Terrain, Patterns | ✅ |
+| **9. Shaders** | Crear, Validar, Material, Pipeline, Análisis | ❌ |
 
-> 📖 **Referencia completa:** Ver [TOOLS.md](docs/TOOLS.md) para documentación detallada de las 107 herramientas.
+> 📖 **Referencia completa:** Ver [TOOLS.md](docs/TOOLS.md) para documentación detallada de las 111 herramientas.
 
 ### Destacados
 
@@ -250,14 +252,15 @@ Añade a tu `opencode.jsonc`:
 
 | Documento | Contenido |
 |---|---|
-| [TOOLS.md](docs/TOOLS.md) | Referencia completa de las 107 herramientas |
+| [TOOLS.md](docs/TOOLS.md) | Referencia completa de las 111 herramientas |
+| [SHADERS.md](docs/SHADERS.md) | Guía de Shader Tools con ejemplos y templates |
 | [TILEMAP_TOOLS.md](docs/TILEMAP_TOOLS.md) | Guía de TileMap Tools con ejemplos |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Diseño interno, sesiones y cache |
 | [ARCHITECTURE_v4.md](docs/ARCHITECTURE_v4.md) | Arquitectura v4.0.0 (4 capas) |
 | [CLEANUP_v4.md](docs/CLEANUP_v4.md) | Análisis de limpieza e integración con sesiones |
 | [COMMON_ERRORS.md](docs/COMMON_ERRORS.md) | Errores frecuentes y soluciones |
 | [TESTS.md](docs/TESTS.md) | Métricas de testing y cobertura |
-| [CHANGELOG.md](CHANGELOG.md) | Historial de versiones (v4.3.0) |
+| [CHANGELOG.md](CHANGELOG.md) | Historial de versiones (v4.6.0) |
 
 ---
 
@@ -270,7 +273,7 @@ pytest tests/e2e/          # Solo E2E
 pytest tests/test_server.py -v  # Tests específicos
 ```
 
-**Estado:** 496 tests pasando · 23 módulos registrados en v4.5.0
+**Estado:** 512 tests pasando · 24 módulos registrados en v4.6.0
 
 ---
 
@@ -321,9 +324,12 @@ src/godot_mcp/
 │   ├── dependency_tools.py      # Dependency graph
 │   ├── signal_graph_tools.py    # Signal graph
 │   └── code_analysis_tools.py   # Code analysis
-└── templates/                   # Templates
-    ├── node_templates.py        # Templates de nodos
-    └── script_templates.py      # Templates de scripts
+├── templates/                   # Templates
+│   ├── node_templates.py        # Templates de nodos
+│   ├── script_templates.py      # Templates de scripts
+│   └── shader_templates.py      # Templates de shaders (15 plantillas GDShader)
+└── core/                        # Núcleo
+    └── shader_parser.py         # Parser de GDShader (uniforms, funciones, complejidad)
 ```
 
 ---
